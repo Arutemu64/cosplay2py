@@ -1,0 +1,13 @@
+{
+  "state": {
+    "topics_count": 1,
+    "requests_pending": 1,
+    "requests_waiting": 1,
+    "requests_materials": 1,
+    "requests_review": 1,
+    "requests_approved": 1,
+    "requests_disapproved": 1,
+    "tickets_voting": 1,
+    "sms_cost": "1"
+  }
+}
