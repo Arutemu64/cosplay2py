@@ -91,6 +91,7 @@ known-first-party = ["cosplay2py"]
 
 [tool.ruff.format]
 docstring-code-format = true
+line-ending = "lf"
 
 [tool.ty.src]
 include = ["src", "tests"]

@@ -1,4 +1,8 @@
 repos:
+  - repo: builtin
+    hooks:
+      - id: mixed-line-ending
+        args: [--fix=lf]
   - repo: local
     hooks:
       - id: ruff-check
