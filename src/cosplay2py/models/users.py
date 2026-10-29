@@ -112,8 +112,12 @@ class UserEventRole(Cosplay2Model):
     er: UserEventRoleType
     """The user's role in the event, e.g. ``"ORG"``."""
     city: str | None = None
+    t_id: int | None = None
+    """Topic ID (for ``REQ_AUTHOR`` and ``REQ_MEMBER``)."""
     t_title: str | None = None
     """Topic title (for ``CURATOR``, ``REQ_AUTHOR`` and ``REQ_MEMBER``)."""
+    url_code: str | None = None
+    """Topic URL slug (for ``REQ_AUTHOR`` and ``REQ_MEMBER``)."""
     r_id: int | None = None
     """Request ID (for ``REQ_AUTHOR`` and ``REQ_MEMBER``)."""
     number: int | None = None
@@ -130,3 +134,23 @@ class UserEventRole(Cosplay2Model):
 class UserEvents(Cosplay2Model):
     events: list[UserEvent]
     roles: list[UserEventRole] = Field(default_factory=list, alias="data")
+
+
+class UserFeed(Cosplay2Model):
+    """A notification item from ``users.get_feeds``."""
+
+    id: int
+    update_time_utc: UTCDateTime
+    feed_type: str
+    """Notification kind, e.g. ``"REQUEST_STATUS"`` or ``"FRIENDS_INVITE_IN"``."""
+    feed_data: str | None = None
+    """HTML snippet describing the notification."""
+    href: str | None = None
+    view_time_utc: UTCDateTime | None = None
+    event_id: int | None = None
+    event_subdomain: str | None = None
+    event_title: str | None = None
+    request_id: int | None = None
+    user_id: int | None = None
+    user_title: str | None = None
+    image_update_time: UTCDateTime | None = None

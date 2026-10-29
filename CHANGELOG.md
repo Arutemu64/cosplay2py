@@ -7,6 +7,20 @@ means a breaking change.
 
 ## [Unreleased]
 
+### Added
+
+- `users.accept_friend_invite()` (`POST /api/users/friend_invite_accept`),
+  `users.decline_friend_invite()` (`POST /api/users/friend_invite_decline`), and
+  `users.mark_feeds_read()` (`POST /api/users/mark_feeds_readed`).
+- `UserFeed` model exported from `cosplay2py.models`.
+- Optional `t_id` and `url_code` fields on `UserEventRole`, and `filter=None` support on
+  `users.get_events()`.
+
+### Changed
+
+- **Breaking:** `users.get_feeds()` now returns `list[UserFeed]` instead of
+  `list[dict[str, Any]]`.
+
 ## [0.2.0] - 2026-10-29
 
 ### Added

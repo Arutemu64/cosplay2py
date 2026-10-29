@@ -46,9 +46,9 @@ The same kind of value comes in different shapes depending on the endpoint:
 
 | What                     | Wire format                                   | Seen in                                       |
 |--------------------------|-----------------------------------------------|-----------------------------------------------|
-| Server timestamp         | `"YYYY-MM-DD HH:MM:SS"`, in **UTC**           | topics, requests, comments                    |
+| Server timestamp         | `"YYYY-MM-DD HH:MM:SS"`, in **UTC**           | topics, requests, comments, `users/get_feeds` (`image_update_time`) |
 |                          | Unix **seconds**                              | `requests/get_user`, `users/get`, `users/search` (`image_update_time`) |
-|                          | Unix **milliseconds**                         | `users/get_events` (`start_time`, `end_time`) |
+|                          | Unix **milliseconds**                         | `users/get_events` (`start_time`, `end_time`), `users/get_feeds` (`update_time_utc`, `view_time_utc`) |
 | Display date/time        | `"DD.MM.YY HH:MM"`, in the event's timezone   | `events/get_topics_state`, `get_settings`     |
 | Flag                     | `0` / `1` integers                            | most models (`voting_public`, `card_enabled`) |
 |                          | real `true` / `false`                         | e.g. `requests/get` (`editEnabled`)           |
@@ -111,8 +111,15 @@ the event's timezone, the same format the site displays.
 - **`requests/change_topic`** does nothing unless the target topic has all the sections
   and fields of the request. Pass `"forceflag": "force"` to move it anyway, dropping
   what doesn't fit.
-- **`users/get_feeds` with `onlynew: 1`** may mark notifications as read for the token's
-  owner. Treat it as a write.
+- **`users/get_feeds` and `users/mark_feeds_readed`.** The top bar calls `users/get_feeds`
+  with `onlynew: 1` and `limit: 30`; the profile page omits `onlynew` and passes
+  `limit: 20`. Each feed entry has `update_time_utc` and `view_time_utc` (`null` while
+  unread) in Unix milliseconds, `image_update_time` as a `"YYYY-MM-DD HH:MM:SS"` UTC
+  string, `feed_type` (seen: `"FRIENDS_INVITE_IN"`, `"EVENT_ORG_NEW"`,
+  `"EVENT_ORG_ADD"`, `"REQUEST_STATUS"`), an HTML `feed_data` snippet and `href`.
+  Opening the notification dropdown sends `users/mark_feeds_readed` (`{"user_id": 42}`),
+  which returns the `ok` marker and sets `view_time_utc` on unread items. Treat
+  `users/get_feeds` with `onlynew: 1` as a write as well.
 - **`users/get`** is a `POST` with no body: the site passes the user id in the query
   string, `/api/users/get?user_id=42`. The response holds `user` (the profile) and
   `friends`, whose entries use their own field names (`friend_id`, `friend_title`,
@@ -123,9 +130,13 @@ the event's timezone, the same format the site displays.
   `friends` came back empty for other users, friends included, and was only filled
   in on your own profile.
 - **Friends.** The profile page's buttons call `users/friend_add` (send an
-  invitation), `users/friend_invite_cancel` (withdraw it) and `users/friend_remove`,
-  each with `{"friend_id": 42}` and returning just the `ok` marker. Accepting an
-  incoming invitation wasn't captured.
+  invitation), `users/friend_invite_accept` (accept an incoming invitation),
+  `users/friend_invite_decline` (decline it), `users/friend_invite_cancel` (withdraw
+  your outgoing invitation) and `users/friend_remove`, each with `{"friend_id": 42}`.
+  All return just the `ok` marker except `friend_invite_accept`, which returns
+  `{"message": "ok", "user": {...}, "friends": []}` in the same shape as `users/get`
+  with the newly unlocked friend profile (`friend_status: "friend"`, full name,
+  `birthday`, `email`, `mobile`).
 - **`users/save`** edits one profile field per call: `{"userId": 42, "field": ...,
   "data": ...}`. From the profile page the site sends `first_name`, `second_name`,
   `third_name`, `sex` (`"male"`/`"female"`), `birthday` (`"DD.MM.YYYY"`), `city`,
@@ -194,10 +205,13 @@ The calls cosplay2py wraps. "Key" is the top-level key that holds the payload, i
 | `POST` | `/api/users/get` |  | `users.get()` |
 | `POST` | `/api/users/save` |  | `users.save_field()` |
 | `POST` | `/api/users/friend_add` |  | `users.add_friend()` |
+| `POST` | `/api/users/friend_invite_accept` |  | `users.accept_friend_invite()` |
+| `POST` | `/api/users/friend_invite_decline` |  | `users.decline_friend_invite()` |
 | `POST` | `/api/users/friend_invite_cancel` |  | `users.cancel_friend_invite()` |
 | `POST` | `/api/users/friend_remove` |  | `users.remove_friend()` |
 | `POST` | `/api/users/get_events` |  | `users.get_events()` |
 | `POST` | `/api/users/get_feeds` | `feeds` | `users.get_feeds()` |
+| `POST` | `/api/users/mark_feeds_readed` |  | `users.mark_feeds_read()` |
 | `POST` | `/api/users/search` | `users` | `users.search()` |
 | `GET` | `/api/users/get_friends` | `users` | `users.get_friends()` |
 | `GET` | `/api/event_design/get` | `design` | `design.get()` |
@@ -270,8 +284,6 @@ response is observed:
 - `tickets.get_voting_statistics()` (`VotingStatistics.votes_by_source`,
   `topics_activity`, `prizes`, `prizes_winners`) — live voting monitor in
   *Орги → Голосование → Мониторинг*.
-- `users.get_feeds()` (`/api/users/get_feeds`, key `feeds`) — notification dropdown
-  items (template shows `update_time_utc` in Unix milliseconds, `href`, `feed_data`).
 - `topics.get_list(with_group_text=True)` (`Topic.child_topics`) — grouped topics.
 
 ### Uncaptured event-scoped endpoints in the frontend
@@ -304,9 +316,7 @@ response is observed:
   `clear_votes`, `get_txt`, `prize_add`, `prize_del`, `save_prize_field`,
   `save_prize_handed`) and voter flow (`get_ticket`, `check_for_voting`,
   `get_voting_data`, `get_cards`, `select_winner`).
-- **User profile (`users`):** `/api/users/friend_invite_accept`,
-  `/api/users/friend_invite_decline`, `/api/users/mark_feeds_readed`,
-  `/api/users/upload_image`, `/api/users/make_avatar`.
+- **User profile (`users`):** `/api/users/upload_image`, `/api/users/make_avatar`.
 
 ### Out-of-scope portal, session and admin endpoints
 

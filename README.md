@@ -67,7 +67,7 @@ Any argument left out falls back to the environment: `COSPLAY2_API_KEY`,
 | `events`      | `get_settings`, `get_state`, `get_topics_state`, `get_topics_statistic`, `get_buttons_state`, `get_staff`, `get_plan`, `save_plan`, `get_blank`, `get_reg_topics`, `get_reg_alphabet`, `check_external_domain`, `search`, `set_deadline` |
 | `topics`      | `get_list`, `get_requests`, `get_all_requests`, `get_requests_for_planner`, `get_form`, `create`, `delete`, `reorder`, `fill_from_template`, `fill_from_topic`, `add_section`, `save_section`, `delete_section`, `add_field`, `delete_field`, `save_field`, `save_topic`, `reorder_section` |
 | `requests`    | `get`, `get_comments`, `get_org_comments`, `get_user`, `generate_card_title`, `generate_card_announcement`, `generate_card_diplom`, `get_value_history`, `add_comment`, `delete_comment`, `save_field`, `upload_image`, `delete_image`, `save_data`, `set_status`, `create`, `create_section`, `change_topic`, `add_org_comment`, `delete_org_comment`, `get_feedbacks`, `add_feedback`, `delete_feedback` |
-| `users`       | `get`, `save_field`, `add_friend`, `cancel_friend_invite`, `remove_friend`, `get_events`, `get_feeds`, `get_friends`, `search` |
+| `users`       | `get`, `save_field`, `add_friend`, `accept_friend_invite`, `decline_friend_invite`, `cancel_friend_invite`, `remove_friend`, `get_events`, `get_feeds`, `mark_feeds_read`, `get_friends`, `search` |
 | `design`      | `get`, `get_images`, `save`, `upload_image`, `delete_image` |
 | `pages`       | `get_list`, `get`, `create`, `save_field`, `save_fields`, `delete`, `reorder` |
 | `media`       | `get_data`, `add_album` |

@@ -88,6 +88,7 @@ from cosplay2py.models.users import (
     UserEventRole,
     UserEventRoleType,
     UserEvents,
+    UserFeed,
     UserProfile,
     UserSearchResult,
 )
@@ -175,6 +176,7 @@ __all__ = [
     "UserEventRole",
     "UserEventRoleType",
     "UserEvents",
+    "UserFeed",
     "UserProfile",
     "UserSearchResult",
     "ValueChange",
