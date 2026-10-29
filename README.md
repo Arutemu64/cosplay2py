@@ -134,8 +134,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for how to propose changes.
 
 ```shell
 uv sync
+uv run prek install           # install Git hooks once per clone
 uv run pytest                 # offline unit tests (default)
-uv run ruff check && uv run ty check
+uv run prek run --all-files    # lint, format, and type-check
 ```
 
 ### Testing against the real site

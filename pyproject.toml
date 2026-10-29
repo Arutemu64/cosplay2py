@@ -48,6 +48,7 @@ dev = [
     # Pre-1.0: releases can change diagnostics, so pin exactly.
     "ty==0.0.93",
     "trio>=0.26",
+    "prek>=0.5.7",
 ]
 
 [tool.pytest]

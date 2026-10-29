@@ -15,12 +15,17 @@ You need [uv](https://docs.astral.sh/uv/). Then:
 
 ```shell
 uv sync
+uv run prek install
 uv run pytest
 uv run ruff check && uv run ruff format --check
 uv run ty check
 ```
 
-All four must pass before a pull request is merged. Live tests against a real event are
+All checks must pass before a pull request is merged. The prek hooks fix Ruff lint
+issues where possible, format staged Python files, and run ty across the project.
+Install them once per clone; run `uv run prek run --all-files` to check everything.
+If a hook changes files, review and stage those changes before committing again.
+Pytest remains a separate check. Live tests against a real event are
 optional and need an API token; see [Testing against the real site](README.md#testing-against-the-real-site).
 
 ## Making a change
