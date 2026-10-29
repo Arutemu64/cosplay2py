@@ -70,7 +70,7 @@ Any argument left out falls back to the environment: `COSPLAY2_API_KEY`,
 | `users`       | `get`, `save_field`, `add_friend`, `cancel_friend_invite`, `remove_friend`, `get_events`, `get_feeds`, `get_friends`, `search` |
 | `design`      | `get`, `get_images`, `save`, `upload_image`, `delete_image` |
 | `pages`       | `get_list`, `get`, `create`, `save_field`, `save_fields`, `delete`, `reorder` |
-| `media`       | `get_data` |
+| `media`       | `get_data`, `add_album` |
 | `etickets`    | `get_list`, `get_types`, `get_paymethods`, `get_vat_dictionary` |
 | `tickets`     | `get_statistic`, `get_voting_statistics` |
 
@@ -81,6 +81,12 @@ Any argument left out falls back to the environment: `COSPLAY2_API_KEY`,
 - Display strings like `"22.08.26 03:00"` (`TopicState`, `Event.start_time`) become
   naive `datetime`s, as the site shows them.
 - `0`/`1` flags become `bool`. JSON packed into strings (`Event.design`, the plan) is parsed.
+- Closed domain sets (`RequestStatus`, `TopicFieldType`, `PageType`, `PlanNodeType`,
+  `EventRole`, `EventStatus`, `EventTime`, `ButtonStateCode`, `TopicCategory`,
+  `PublicRequests`, `TopicTemplate`, `SectionTemplate`, `FieldTemplate`, `FeedbackMark`,
+  `Sex`, `FriendStatus`, `UserEventRoleType`, `BlankId`, `Deadline`) are validated
+  strictly as `StrEnum` / `IntEnum` members (empty strings on optional fields normalize
+  to `None`).
 - Unknown fields are kept rather than rejected. Read them via `model.model_extra`.
 
 Talking to the API without this library? [docs/api-notes.md](docs/api-notes.md)

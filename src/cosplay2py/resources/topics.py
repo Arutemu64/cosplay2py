@@ -3,10 +3,13 @@ from typing import Any
 from cosplay2py._base_client import Endpoint
 from cosplay2py.models import (
     EventRequest,
+    FieldTemplate,
     PlannerData,
+    SectionTemplate,
     Topic,
     TopicForm,
     TopicRequests,
+    TopicTemplate,
 )
 from cosplay2py.resources._base import AsyncResource, SyncResource
 
@@ -112,11 +115,12 @@ class Topics(SyncResource):
             _write("topic_reorder", {"topic_id": topic_id, "new_index": new_index})
         )
 
-    def fill_from_template(self, topic_id: int, template: str) -> None:
+    def fill_from_template(self, topic_id: int, template: TopicTemplate) -> None:
         """Replace a topic's form with a built-in template.
 
-        :param template: template name, e.g. ``"art"``.
+        :param template: template name, e.g. ``TopicTemplate.ART``.
         """
+        template = TopicTemplate(template)
         self._request(
             _write(
                 "fill_from_template", {"topic_id": topic_id, "internal_name": template}
@@ -135,11 +139,12 @@ class Topics(SyncResource):
             )
         )
 
-    def add_section(self, topic_id: int, template: str) -> None:
+    def add_section(self, topic_id: int, template: SectionTemplate) -> None:
         """Add a built-in section to a topic's form.
 
-        :param template: section template name, e.g. ``"common"``.
+        :param template: section template name, e.g. ``SectionTemplate.COMMON``.
         """
+        template = SectionTemplate(template)
         self._request(
             _write("section_add", {"topic_id": topic_id, "internal_name": template})
         )
@@ -171,12 +176,15 @@ class Topics(SyncResource):
             _write("section_delete", {"topic_id": topic_id, "section_id": section_id})
         )
 
-    def add_field(self, topic_id: int, section_id: int, template: str) -> None:
+    def add_field(
+        self, topic_id: int, section_id: int, template: FieldTemplate
+    ) -> None:
         """Add a built-in field to a section of a topic's form.
 
         :param section_id: ``TopicSection.id``.
-        :param template: field template name, e.g. ``"first_name"``.
+        :param template: field template name, e.g. ``FieldTemplate.FIRST_NAME``.
         """
+        template = FieldTemplate(template)
         self._request(
             _write(
                 "field_add",
@@ -296,11 +304,12 @@ class AsyncTopics(AsyncResource):
             _write("topic_reorder", {"topic_id": topic_id, "new_index": new_index})
         )
 
-    async def fill_from_template(self, topic_id: int, template: str) -> None:
+    async def fill_from_template(self, topic_id: int, template: TopicTemplate) -> None:
         """Replace a topic's form with a built-in template.
 
-        :param template: template name, e.g. ``"art"``.
+        :param template: template name, e.g. ``TopicTemplate.ART``.
         """
+        template = TopicTemplate(template)
         await self._request(
             _write(
                 "fill_from_template", {"topic_id": topic_id, "internal_name": template}
@@ -319,11 +328,12 @@ class AsyncTopics(AsyncResource):
             )
         )
 
-    async def add_section(self, topic_id: int, template: str) -> None:
+    async def add_section(self, topic_id: int, template: SectionTemplate) -> None:
         """Add a built-in section to a topic's form.
 
-        :param template: section template name, e.g. ``"common"``.
+        :param template: section template name, e.g. ``SectionTemplate.COMMON``.
         """
+        template = SectionTemplate(template)
         await self._request(
             _write("section_add", {"topic_id": topic_id, "internal_name": template})
         )
@@ -355,12 +365,15 @@ class AsyncTopics(AsyncResource):
             _write("section_delete", {"topic_id": topic_id, "section_id": section_id})
         )
 
-    async def add_field(self, topic_id: int, section_id: int, template: str) -> None:
+    async def add_field(
+        self, topic_id: int, section_id: int, template: FieldTemplate
+    ) -> None:
         """Add a built-in field to a section of a topic's form.
 
         :param section_id: ``TopicSection.id``.
-        :param template: field template name, e.g. ``"first_name"``.
+        :param template: field template name, e.g. ``FieldTemplate.FIRST_NAME``.
         """
+        template = FieldTemplate(template)
         await self._request(
             _write(
                 "field_add",

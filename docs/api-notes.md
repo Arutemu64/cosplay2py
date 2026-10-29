@@ -54,6 +54,7 @@ The same kind of value comes in different shapes depending on the endpoint:
 |                          | real `true` / `false`                         | e.g. `requests/get` (`editEnabled`)           |
 | Nested object            | a JSON document packed into a string          | `Event.design`, `events/get_plan`             |
 | Empty list               | sometimes `null` instead of `[]`              | `participants` in registration reports        |
+| Unset optional enum      | sometimes `""` instead of `null`              | custom `TopicSection`/`TopicField` `internal_name` |
 
 The event's timezone is `timezone` in `events/get_settings`.
 
@@ -228,6 +229,7 @@ The calls cosplay2py wraps. "Key" is the top-level key that holds the payload, i
 | `POST` | `/api/event_design/upload_image` | eventimages | `design.upload_image()` |
 | `POST` | `/api/event_design/delete_eventimage` | eventimages | `design.delete_image()` |
 | `POST` | `/api/pages/page_reorder` |  | `pages.reorder()` |
+| `POST` | `/api/media/photoalbum_add` |  | `media.add_album()` |
 
 ## Additional observations (2026-10-29 HAR)
 
@@ -241,12 +243,98 @@ The calls cosplay2py wraps. "Key" is the top-level key that holds the payload, i
   between folders was not observed.
 - Topic field editing changed `title`; topic editing changed `card_name_rule`.
 - `requests/add_comment` also returned `sms_result: null`; its non-null shape is unknown.
-- `media/photoalbum_add` returned HTTP 500; no successful contract was observed.
+- `media/photoalbum_add` returned HTTP 500 when called with an empty body (`{}`), and
+  succeeded (`{"message": "ok"}`) with `{"user_title": ..., "url": ...}`.
+
+## Missing captures and untyped payloads
+
+The AngularJS frontend bundle (`/js/*.js`, `/html/*.html`, `index.html`) references
+additional fields and endpoints that have not yet been observed with populated server
+payloads in HAR captures:
+
+### Wrapped endpoints with empty list payloads in captures
+
+These endpoints are wrapped in cosplay2py, but their list fields came back as `[]` in
+all captured responses and are kept as `Any` / `dict[str, Any]` until a populated
+response is observed:
+
+- `etickets.get_list()` (`/api/etickets/get_list`, key `etickets`) — sold e-tickets in
+  *Орги → Электронные билеты → Управление*.
+- `etickets.get_types()` (`/api/etickets/get_types`, key `etickets_types`) — ticket
+  tiers in *Орги → Электронные билеты → Типы билетов* (template shows `id`, `title`,
+  `type`, `price`, `max_count`, `short_desc`, `full_desc`, `img_href`, `time_sell_start`,
+  `time_sell_end`, where `type` is one of `"for_all"`, `"for_members"`,
+  `"for_scene_members"`, `"for_outscene_members"`, `"for_disapproved_scene_members"`).
+- `tickets.get_statistic()` (`TicketStatistic.test_tickets`) — test voting tickets in
+  *Орги → Голосование → Билеты* (template shows `number`).
+- `tickets.get_voting_statistics()` (`VotingStatistics.votes_by_source`,
+  `topics_activity`, `prizes`, `prizes_winners`) — live voting monitor in
+  *Орги → Голосование → Мониторинг*.
+- `users.get_feeds()` (`/api/users/get_feeds`, key `feeds`) — notification dropdown
+  items (template shows `update_time_utc` in Unix milliseconds, `href`, `feed_data`).
+- `topics.get_list(with_group_text=True)` (`Topic.child_topics`) — grouped topics.
+
+### Uncaptured event-scoped endpoints in the frontend
+
+- **Public cards (`cards`):** `/api/cards/get_topics_and_cards`, `/api/cards/get_card`,
+  `/api/cards/get_topics_and_requests`, `/api/cards/get_request` (public participant
+  showcase and public request list).
+- **Event settings & staff (`events`):** `/api/events/save_setting`,
+  `/api/events/add_org`, `/api/events/delete_org`, `/api/events/add_curator`,
+  `/api/events/delete_curator`, `/api/events/change_mainorg`, `/api/events/winners`,
+  `/api/events/get_newrequest_state`, `/api/events/get_html_menu`,
+  `/api/events/export_plan`, `/api/events/get_blank_xls`.
+- **Topics (`topics`):** `/api/topics/field_reorder`, `/api/topics/field_move`,
+  `/api/topics/section_move`, `/api/topics/topic_move`,
+  `/api/topics/generate_cards_title`, `/api/topics/reorder_requests`,
+  `/api/topics/get_with_groups`, `/api/topics/add_child_topic`,
+  `/api/topics/del_child_topic`, `/api/topics/download_files`.
+- **Requests (`requests`):** `/api/requests/delete_reqsection`,
+  `/api/requests/generate_voting_num`, `/api/requests/search`.
+- **Media (`media`):** `/api/media/save_photoalbum_field`,
+  `/api/media/photoalbum_delete`, `/api/media/recalc_photo`.
+- **Design (`event_design`):** `/api/event_design/delete_header_logo`,
+  `/api/event_design/delete_panel_logo`, `/api/event_design/delete_site_background`.
+- **E-tickets (`etickets`):** organizer writes (`/api/etickets/eticketstypes_add`,
+  `eticketstypes_delete`, `eticketstypes_reorder`, `save_eticketstypes_field`,
+  `save_eticket_field`, `save_paymethods_field`, `delete`, `excel`) and buyer flow
+  (`create_ticket`, `get_ticket`, `get_ticket_status`, `save_personal_data`,
+  `printform`, `init-yookassa-payment`).
+- **Audience voting (`tickets`):** organizer writes (`/api/tickets/create`,
+  `clear_votes`, `get_txt`, `prize_add`, `prize_del`, `save_prize_field`,
+  `save_prize_handed`) and voter flow (`get_ticket`, `check_for_voting`,
+  `get_voting_data`, `get_cards`, `select_winner`).
+- **User profile (`users`):** `/api/users/friend_invite_accept`,
+  `/api/users/friend_invite_decline`, `/api/users/mark_feeds_readed`,
+  `/api/users/upload_image`, `/api/users/make_avatar`.
+
+### Out-of-scope portal, session and admin endpoints
+
+The frontend bundle also contains calls for the global `cosplay2.ru` portal, browser
+session authentication, and the platform superadmin panel (`user.role == 100`), which
+are outside the per-event token API:
+
+- **Browser auth & VK ID (`users`):** `login`, `logincheck`, `logout`, `register`,
+  `restore_password`, `restore_password_sms`, `check_code`, `org_auth`, `vk_link`,
+  `vk_link_status`, `vk_unlink`, `vk_logout`, `vk_notify_status`,
+  `vk_notify_set_enabled`.
+- **Global portal & ratings:** `events/create_festival`, `events/create_festival_logo`,
+  `events/filter_list`, `events/get_types`, `users/ratings_global`,
+  `users/ratings_country`, `users/ratings_area`, `users/ratings_region`,
+  `users/ratings_city`, `users/get_region_geo_id`, `geo/code_city`.
+- **Superadmin (`admin`, `api_keys`, `blocked_ips`):** `admin/events_list`,
+  `admin/calc_size`, `admin/del_files`, `api_keys/list`, `api_keys/generate`,
+  `api_keys/deactivate`, `blocked_ips/*`, `users/calc_rating`, `events/get`.
+- **Frontend internals:** `/api/pool/get` (tab polling), `/api/error/handle`, and
+  payment provider webhooks (`etickets/yandex_confirm`,
+  `etickets/yookassa-postback-handler`).
 
 ## How these were found
 
 By watching the event site's own frontend in the browser dev tools (HAR captures),
-then checking every read-only call against a real event with the live tests in
+inspecting the site's unminified AngularJS scripts (`/js/*.js`), view templates
+(`/html/*.html`) and inline `globals` in `index.html` for hardcoded enums and constants,
+and checking every read-only call against a real event with the live tests in
 `tests/live`. They warn about fields the models don't declare yet, which is how API
 changes get noticed.
 

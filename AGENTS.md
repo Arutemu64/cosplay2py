@@ -25,7 +25,7 @@ src/cosplay2py/
                     response unwrapping + validation, retry policy (no I/O)
   _client.py        Cosplay2 / AsyncCosplay2: transport loop, retries, context managers
   _exceptions.py    error hierarchy, make_status_error()
-  _types.py         UTCDateTime, LocalDateTime, JsonEncoded wire-format normalizers
+  _types.py         UTCDateTime, LocalDateTime, JsonEncoded, EmptyAsNone normalizers
   models/           Pydantic response models, all re-exported from models/__init__.py
   resources/        one module per API area; a sync and an async class per resource
 tests/unit/         offline tests using httpx2.MockTransport, one file per resource module
@@ -63,10 +63,16 @@ docs/api-notes.md   language-agnostic notes on the API: quirks, wire formats, en
   `Field(alias="apiName")` (`populate_by_name` is on). Normalize wire quirks with the types
   in `_types.py` instead of ad-hoc validators: `UTCDateTime` for server timestamps,
   `LocalDateTime` for `"DD.MM.YY HH:MM"` display strings, `Annotated[T, JsonEncoded]` for
-  JSON packed into strings. `0`/`1` flags are typed as `bool`.
-- The API is undocumented and drifts: make fields optional (`= None`) unless every
-  observed payload has them, and use `Any` rather than guessing at a shape you haven't
-  seen. Document non-obvious fields with an attribute docstring below the field.
+  JSON packed into strings, `Annotated[E | None, EmptyAsNone]` when the API sends `""`
+  for an unset optional enum. `0`/`1` flags are typed as `bool`.
+- Closed domain sets (statuses, roles, categories, field/page/plan node types, template
+  `internal_name`s) are extracted from the site's unminified AngularJS frontend (`index.html`
+  `globals`, `/js/*.js`, and `/html/*.html` templates) and enforced as strict `StrEnum` /
+  `IntEnum` types (no `Enum | str` open-union fallbacks) in both models and resource
+  method parameters.
+- For other fields, make them optional (`= None`) unless every observed payload has them,
+  and use `Any` rather than guessing at a shape you haven't seen. Document non-obvious
+  fields with an attribute docstring below the field.
 - Request bodies mirror what the site sends, including stringified ids where it does
   (e.g. `{"request_id": str(request_id)}`).
   Two exceptions: leave out `wid`, a random per-tab id the site's `poolIdInjector`

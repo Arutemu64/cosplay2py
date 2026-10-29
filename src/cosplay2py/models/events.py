@@ -1,12 +1,12 @@
 from decimal import Decimal
-from enum import StrEnum
-from typing import Annotated, Any
+from enum import IntEnum, StrEnum
+from typing import Annotated
 
 from pydantic import BeforeValidator, Field
 
 from cosplay2py._types import JsonEncoded, LocalDateTime, UTCDateTime
 from cosplay2py.models._base import Cosplay2Model
-from cosplay2py.models.common import RequestStatus, UserBrief
+from cosplay2py.models.common import EventTime, RequestStatus, UserBrief
 from cosplay2py.models.topics import PlannerMember
 
 
@@ -26,25 +26,43 @@ class EventDesign(Cosplay2Model):
     content_link_color: str | None = None
     content_opacity: float | None = None
     custom_css: str | None = None
-    wid: str | None = None
-    """The site's per-tab pool id, stored along with the design when it was saved;
-    meaningless."""
+
+
+class PlanIntersection(Cosplay2Model):
+    """An overlapping performance of the same participant in the schedule."""
+
+    uid: str | None = None
+    request_id: int
+    title: str | None = None
+    status: RequestStatus | None = None
+    topic_id: int | None = None
+    card_code: str | None = None
+    distance: int | None = None
+    """Signed time difference in milliseconds between the two performances."""
 
 
 class PlanMember(PlannerMember):
     uid: str | None = None
     distance: int | None = None
-    intersections: list[Any] = Field(default_factory=list)
+    intersections: list[PlanIntersection] = Field(default_factory=list)
     """Other plan entries this member overlaps with."""
-    hash_key: str | None = Field(default=None, alias="$$hashKey")
-    """AngularJS bookkeeping saved along with the plan; meaningless."""
+
+
+class PlanNodeType(StrEnum):
+    """Kind of a node in the schedule tree."""
+
+    DAY = "day"
+    PLACE = "place"
+    TOPIC = "topic"
+    REQUEST = "request"
+    EVENT = "event"
+    BREAK = "break"
 
 
 class PlanNode(Cosplay2Model):
     """A node of the schedule tree: day -> place -> event (performance block)."""
 
-    type: str
-    """``"day"``, ``"place"``, ``"topic"``, ``"request"``, ``"event"`` or ``"break"``."""
+    type: PlanNodeType
     title: str | None = None
     uid: str | None = None
     nodes: list["PlanNode"] = Field(default_factory=list)
@@ -77,6 +95,13 @@ class PlanNode(Cosplay2Model):
 Plan = Annotated[list[PlanNode], JsonEncoded]
 
 
+class EventStatus(StrEnum):
+    """Visibility of an event site."""
+
+    PRIVATE = "private"
+    PUBLIC = "public"
+
+
 class Event(Cosplay2Model):
     """Event (festival) settings."""
 
@@ -97,9 +122,8 @@ class Event(Cosplay2Model):
     start_time: LocalDateTime | None = None
     end_time: LocalDateTime | None = None
     timezone: str
-    status: str
-    event_status: str | None = None
-    """``"past"``, ``"future"``, ..."""
+    status: EventStatus
+    event_status: EventTime | None = None
     design: Annotated[EventDesign | None, JsonEncoded] = None
     plan: Annotated[list[PlanNode] | None, JsonEncoded] = None
     ad: int | None = None
@@ -176,8 +200,18 @@ class TopicStatistic(Cosplay2Model):
     count_disapproved: int
 
 
+class ButtonStateCode(IntEnum):
+    """Availability state of an event menu section."""
+
+    HIDDEN = 0
+    UPCOMING = 1
+    OPEN = 2
+
+
 class ButtonState(Cosplay2Model):
-    state: int
+    state: ButtonStateCode
+    timer: int | None = None
+    """Seconds until the section opens (``UPCOMING``) or closes (``OPEN``)."""
 
 
 class ButtonsState(Cosplay2Model):

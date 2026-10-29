@@ -1,12 +1,13 @@
 import json
-from typing import Any
+from enum import IntEnum, StrEnum
+from typing import Annotated, Literal
 
 from pydantic import Field
 
-from cosplay2py._types import LocalDateTime, UTCDateTime
+from cosplay2py._types import EmptyAsNone, LocalDateTime, UTCDateTime
 from cosplay2py.models._base import Cosplay2Model
-from cosplay2py.models.common import RequestStatus, UserBrief
-from cosplay2py.models.topics import Topic
+from cosplay2py.models.common import EventRole, RequestStatus, UserBrief
+from cosplay2py.models.topics import FieldTemplate, SectionTemplate, Topic
 
 
 class Request(Cosplay2Model):
@@ -26,13 +27,13 @@ class Request(Cosplay2Model):
     announcement_title: str | None = None
     diplom_title: str | None = None
     program_title: str | None = None
-    win: Any = None
+    win: Literal[1, 2, 3] | None = None
     win_title: str | None = None
     notes: str | None = None
-    score: Any = None
+    score: int | None = None
     edit_enabled: bool | None = None
     friendedit_enabled: bool | None = None
-    er: int | None = Field(default=None, alias="ER")
+    er: EventRole | None = Field(default=None, alias="ER")
     """The current user's role relative to this request."""
 
 
@@ -48,7 +49,23 @@ class TopicSection(Cosplay2Model):
     """How many times the section may repeat (e.g. several participants)."""
     visible_to_all: bool
     registration_blanks: bool
-    internal_name: str | None = None
+    internal_name: Annotated[SectionTemplate | None, EmptyAsNone] = None
+
+
+class TopicFieldType(StrEnum):
+    """Kind of a field in a topic's form."""
+
+    TEXT = "text"
+    TEXTAREA = "textarea"
+    NUM = "num"
+    SELECT = "select"
+    CHECKBOX = "checkbox"
+    FILE = "file"
+    IMAGE = "image"
+    LINK = "link"
+    PHONE = "phone"
+    DURATION = "duration"
+    USER = "user"
 
 
 class TopicField(Cosplay2Model):
@@ -57,15 +74,13 @@ class TopicField(Cosplay2Model):
     id: int
     section_id: int
     title: str
-    type: str
-    """``text``, ``textarea``, ``num``, ``select``, ``checkbox``, ``file``, ``image``,
-    ``link``, ``phone``, ``duration``, ``user``, ..."""
+    type: TopicFieldType
     order: int
     hint: str | None = None
     data: str | None = None
     """Field configuration; for ``select`` fields, a JSON array of options."""
     visible_to_all: bool
-    internal_name: str | None = None
+    internal_name: Annotated[FieldTemplate | None, EmptyAsNone] = None
     topic_title: str | None = None
     """Title of the field's section; only sent by ``requests.change_topic``."""
 
@@ -158,7 +173,7 @@ class NewRequestSection(Cosplay2Model):
 class TopicChange(Cosplay2Model):
     """The outcome of moving a request to another topic."""
 
-    message: str = "ok"
+    message: Literal["ok", "target_not_found"] = "ok"
     """``ok`` once moved; ``target_not_found`` when some sections or fields have no
     counterpart in the target topic and nothing was changed."""
     error_sections: list[TopicSection] = Field(default_factory=list)
@@ -172,6 +187,14 @@ class TopicChange(Cosplay2Model):
         return self.message == "ok"
 
 
+class RequestScore(Cosplay2Model):
+    """An organizer's rating of a request."""
+
+    user_id: int
+    user_title: str | None = None
+    score: int
+
+
 class RequestDetails(Cosplay2Model):
     """A request with its topic, form schema and filled-in values."""
 
@@ -182,7 +205,7 @@ class RequestDetails(Cosplay2Model):
     fields: list[TopicField]
     request_sections: list[RequestSection] = Field(alias="reqsections")
     values: list[RequestValue] = Field(alias="reqvalues")
-    scores: list[Any] = Field(default_factory=list)
+    scores: list[RequestScore] = Field(default_factory=list)
     edit_enabled: bool | None = Field(default=None, alias="editEnabled")
     friendedit_enabled: bool | None = Field(default=None, alias="friendeditEnabled")
 
@@ -234,6 +257,14 @@ class StatusChange(Cosplay2Model):
     voting_number: int | None = None
 
 
+class FeedbackMark(IntEnum):
+    """Rating on organizer feedback about a participant."""
+
+    NEGATIVE = -1
+    NEUTRAL = 0
+    POSITIVE = 1
+
+
 class Feedback(Cosplay2Model):
     """Organizer feedback about a participant."""
 
@@ -242,7 +273,7 @@ class Feedback(Cosplay2Model):
     org_id: int | None = None
     user_id: int | None = None
     event_id: int | None = None
-    mark: int | None = None
+    mark: FeedbackMark | None = None
     info: str | None = None
     event_title: str | None = None
     event_subdomain: str | None = None

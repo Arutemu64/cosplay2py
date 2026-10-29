@@ -6,7 +6,14 @@ from typing import Any
 import httpx2
 import pytest
 
-from cosplay2py.models import RequestStatus
+from cosplay2py.models import (
+    FieldTemplate,
+    PublicRequests,
+    RequestStatus,
+    SectionTemplate,
+    TopicCategory,
+    TopicTemplate,
+)
 from unit.conftest import TOPIC, ApiCall, json_response, make_client
 
 
@@ -19,6 +26,8 @@ def test_get_list_unwraps_and_parses() -> None:
         (topic,) = client.topics.get_list()
 
     assert topic.url_code == "solo"
+    assert topic.category is TopicCategory.DEFILE
+    assert topic.public_requests is PublicRequests.NO
     assert topic.card_enabled is True
     assert topic.voting_public is False
     assert topic.time_requests_open == datetime(2026, 4, 1, 9, tzinfo=UTC)
@@ -120,6 +129,7 @@ def test_get_form() -> None:
         "registration_blanks": 1,
         "internal_name": "common",
     }
+    custom_section = {**section, "id": 4, "internal_name": ""}
     field = {
         "id": 5,
         "section_id": 3,
@@ -131,14 +141,15 @@ def test_get_form() -> None:
         "visible_to_all": 1,
         "internal_name": "team",
     }
+    custom_field = {**field, "id": 6, "internal_name": ""}
 
     def handler(request: httpx2.Request) -> httpx2.Response:
         seen.append(request)
         return json_response(
             {
                 "topic": TOPIC,
-                "topic_sections": [section],
-                "topic_fields": [field],
+                "topic_sections": [section, custom_section],
+                "topic_fields": [field, custom_field],
                 "requests_count": 0,
             }
         )
@@ -147,8 +158,8 @@ def test_get_form() -> None:
         form = client.topics.get_form("solo")
 
     assert form.topic.id == TOPIC["id"]
-    assert [s.internal_name for s in form.sections] == ["common"]
-    assert [f.internal_name for f in form.fields] == ["team"]
+    assert [s.internal_name for s in form.sections] == [SectionTemplate.COMMON, None]
+    assert [f.internal_name for f in form.fields] == [FieldTemplate.TEAM, None]
     assert form.requests_count == 0
     (request,) = seen
     assert request.url.path == "/api/topics/get_with_fields"
@@ -167,7 +178,7 @@ def test_get_form() -> None:
             {"topic_id": 7, "new_index": 30},
         ),
         (
-            lambda c: c.topics.fill_from_template(7, "art"),
+            lambda c: c.topics.fill_from_template(7, TopicTemplate.ART),
             "fill_from_template",
             {"topic_id": 7, "internal_name": "art"},
         ),
@@ -177,7 +188,7 @@ def test_get_form() -> None:
             {"topic_id": 7, "src_topic_id": 1030},
         ),
         (
-            lambda c: c.topics.add_section(7, "common"),
+            lambda c: c.topics.add_section(7, SectionTemplate.COMMON),
             "section_add",
             {"topic_id": 7, "internal_name": "common"},
         ),
@@ -192,7 +203,7 @@ def test_get_form() -> None:
             {"topic_id": 7, "section_id": 3},
         ),
         (
-            lambda c: c.topics.add_field(7, 3, "first_name"),
+            lambda c: c.topics.add_field(7, 3, FieldTemplate.FIRST_NAME),
             "field_add",
             {"topic_id": 7, "section_id": 3, "internal_name": "first_name"},
         ),

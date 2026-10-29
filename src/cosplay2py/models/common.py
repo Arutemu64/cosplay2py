@@ -1,7 +1,28 @@
-from enum import StrEnum
+from enum import IntEnum, StrEnum
 
 from cosplay2py._types import UTCDateTime
 from cosplay2py.models._base import Cosplay2Model
+
+
+class EventRole(IntEnum):
+    """Numeric role / permission level in an event (``globals.ER`` on the site)."""
+
+    GUEST = 0
+    USER = 1
+    REQ_MEMBER = 2
+    REQ_AUTHOR = 3
+    CURATOR = 4
+    ORG = 5
+    MAINORG = 6
+    GOD = 100
+
+
+class EventTime(StrEnum):
+    """Whether an event is currently running, upcoming, or over."""
+
+    ACTIVE = "active"
+    FUTURE = "future"
+    PAST = "past"
 
 
 class RequestStatus(StrEnum):

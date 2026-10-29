@@ -23,6 +23,10 @@ def _parse_json(value: Any) -> Any:
     return value
 
 
+def _empty_as_none(value: Any) -> Any:
+    return None if value == "" else value
+
+
 UTCDateTime = Annotated[datetime, AfterValidator(_as_utc)]
 """A timezone-aware UTC datetime.
 
@@ -39,3 +43,6 @@ these are usually in the event's timezone (see ``Event.timezone``).
 
 JsonEncoded = BeforeValidator(_parse_json)
 """Marker for fields that the API returns as a JSON document packed into a string."""
+
+EmptyAsNone = BeforeValidator(_empty_as_none)
+"""Marker for optional fields where the API sends ``""`` instead of ``null``."""

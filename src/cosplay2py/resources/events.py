@@ -55,14 +55,14 @@ _GET_PLAN = Endpoint[list[PlanNode]](
 
 
 # These two reports come back as data rather than rendered HTML.
-_DATA_BLANKS: dict[str, str] = {
+_DATA_BLANKS: dict[BlankId, str] = {
     BlankId.REG_TOPICS: "get_reg_topics",
     BlankId.REG_ALPHABET: "get_reg_alphabet",
 }
 
 
 def _blank_endpoint[T](
-    blank_id: BlankId | str,
+    blank_id: BlankId,
     response_type: type[T],
     req_approved: bool,
     req_disapproved: bool = False,
@@ -82,12 +82,13 @@ def _blank_endpoint[T](
 
 
 def _get_blank(
-    blank_id: BlankId | str,
+    blank_id: BlankId,
     req_approved: bool,
     req_disapproved: bool,
     req_other: bool,
     picture_height: int,
 ) -> Endpoint[Blank]:
+    blank_id = BlankId(blank_id)
     if method := _DATA_BLANKS.get(blank_id):
         raise ValueError(
             f"{blank_id!s} is not an HTML report; use events.{method}() instead."
@@ -119,8 +120,9 @@ def _search(query: str) -> Endpoint[list[EventBrief]]:
 
 
 def _set_deadline(
-    topic_id: int | Iterable[int], deadline: Deadline | str, time: datetime
+    topic_id: int | Iterable[int], deadline: Deadline, time: datetime
 ) -> Endpoint[Any]:
+    deadline = Deadline(deadline)
     if time.tzinfo is not None:
         raise ValueError("Pass a naive datetime in the event's timezone.")
     data = time.strftime("%d.%m.%y %H:%M")
@@ -194,7 +196,7 @@ class Events(SyncResource):
 
     def get_blank(
         self,
-        blank_id: BlankId | str,
+        blank_id: BlankId,
         *,
         req_approved: bool = True,
         req_disapproved: bool = False,
@@ -272,7 +274,7 @@ class Events(SyncResource):
         return self._request(_search(query))
 
     def set_deadline(
-        self, topic_id: int | Iterable[int], deadline: Deadline | str, time: datetime
+        self, topic_id: int | Iterable[int], deadline: Deadline, time: datetime
     ) -> None:
         """Set a deadline of one topic, or the same deadline of several topics.
 
@@ -323,7 +325,7 @@ class AsyncEvents(AsyncResource):
 
     async def get_blank(
         self,
-        blank_id: BlankId | str,
+        blank_id: BlankId,
         *,
         req_approved: bool = True,
         req_disapproved: bool = False,
@@ -401,7 +403,7 @@ class AsyncEvents(AsyncResource):
         return await self._request(_search(query))
 
     async def set_deadline(
-        self, topic_id: int | Iterable[int], deadline: Deadline | str, time: datetime
+        self, topic_id: int | Iterable[int], deadline: Deadline, time: datetime
     ) -> None:
         """Set a deadline of one topic, or the same deadline of several topics.
 

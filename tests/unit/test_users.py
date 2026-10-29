@@ -6,6 +6,13 @@ from typing import Any
 import httpx2
 import pytest
 
+from cosplay2py.models import (
+    EventTime,
+    FriendStatus,
+    RequestStatus,
+    Sex,
+    UserEventRoleType,
+)
 from unit.conftest import ApiCall, json_response, make_client
 
 
@@ -49,6 +56,8 @@ def test_get() -> None:
     assert request.url.params["user_id"] == "7"
     assert request.content == b""
     assert details.user.second_name == "Example"
+    assert details.user.sex is Sex.FEMALE
+    assert details.user.friend_status is FriendStatus.NONE
     assert details.user.image_update_time == datetime(
         2023, 1, 19, 12, 52, 12, tzinfo=UTC
     )
@@ -157,3 +166,54 @@ def test_search() -> None:
     assert parsed.user_id == 7
     assert parsed.friends_boost == 0
     assert parsed.model_extra == {}
+
+
+def test_get_events_parses_curator_and_participant_roles() -> None:
+    payload = {
+        "events": [
+            {
+                "id": 2545,
+                "title": "Fest",
+                "subdomain": "fest",
+                "start_time": 1804896000000,
+                "end_time": 1804896000000,
+                "time": "future",
+            }
+        ],
+        "data": [
+            {
+                "id": 2545,
+                "er": "CURATOR",
+                "t_title": "Solo defile",
+            },
+            {
+                "id": 2545,
+                "er": "REQ_AUTHOR",
+                "r_id": 101,
+                "number": 4,
+                "status": "approved",
+                "t_title": "Solo defile",
+                "card_enabled": 1,
+                "card_code": "D",
+                "voting_number": 12,
+                "voting_title": "Cosplay",
+                "win": 1,
+                "win_title": "1st place",
+            },
+        ],
+    }
+
+    with make_client(lambda request: json_response(payload)) as client:
+        result = client.users.get_events(7)
+
+    assert result.events[0].time is EventTime.FUTURE
+    curator, author = result.roles
+    assert curator.er is UserEventRoleType.CURATOR
+    assert curator.t_title == "Solo defile"
+    assert curator.model_extra == {}
+    assert author.er is UserEventRoleType.REQ_AUTHOR
+    assert author.r_id == 101
+    assert author.status is RequestStatus.APPROVED
+    assert author.card_enabled is True
+    assert author.win == 1
+    assert author.model_extra == {}

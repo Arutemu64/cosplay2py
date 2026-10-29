@@ -4,7 +4,14 @@ from datetime import UTC, datetime
 import httpx2
 import pytest
 
-from cosplay2py.models import BlankId, Deadline
+from cosplay2py import APIResponseValidationError
+from cosplay2py.models import (
+    BlankId,
+    ButtonStateCode,
+    Deadline,
+    PlanNodeType,
+    RequestStatus,
+)
 from unit.conftest import json_response, make_client
 
 
@@ -100,8 +107,8 @@ def test_parses_reg_alphabet_numeric_strings() -> None:
     assert (row.onscene_count, row.offscene_count) == (0, 1)
 
 
-@pytest.mark.parametrize("blank_id", [BlankId.REG_TOPICS, "reg_alphabet"])
-def test_get_blank_rejects_data_reports(blank_id: str) -> None:
+@pytest.mark.parametrize("blank_id", [BlankId.REG_TOPICS, BlankId.REG_ALPHABET])
+def test_get_blank_rejects_data_reports(blank_id: BlankId) -> None:
     def handler(request: httpx2.Request) -> httpx2.Response:
         raise AssertionError("no request expected")
 
@@ -127,7 +134,7 @@ def test_set_deadline() -> None:
         )
         client.events.set_deadline(
             [7, 8],
-            "time_voting_open",
+            Deadline.VOTING_OPEN,
             datetime(2025, 8, 1, 9, 5, 30),  # noqa: DTZ001
         )
 
@@ -176,7 +183,7 @@ def test_parses_nested_json_strings() -> None:
     with make_client(handler) as client:
         (day,) = client.events.get_plan()
 
-    assert day.type == "day"
+    assert day.type is PlanNodeType.DAY
     assert day.date_start == datetime(2026, 8, 22, 3, tzinfo=UTC)
 
 
@@ -197,13 +204,24 @@ def test_save_plan_round_trips() -> None:
                     "request_length": 1.5,
                     "time_start": 1787385600000,
                     "time_end": 1787385690000,
-                    "distance": None,
+                    "distance": -600000,
                     "members": [
                         {
                             "request_id": 5,
                             "title": "Nick",
                             "uid": "m1",
-                            "intersections": [],
+                            "distance": -600000,
+                            "intersections": [
+                                {
+                                    "uid": "i1",
+                                    "request_id": 6,
+                                    "title": "Other",
+                                    "status": "approved",
+                                    "topic_id": 2,
+                                    "card_code": "D",
+                                    "distance": -600000,
+                                }
+                            ],
                             "$$hashKey": "object:12",
                         }
                     ],
@@ -220,7 +238,12 @@ def test_save_plan_round_trips() -> None:
         return json_response({"message": "ok"})
 
     with make_client(handler) as client:
-        client.events.save_plan(client.events.get_plan())
+        parsed_plan = client.events.get_plan()
+        (intersection,) = parsed_plan[0].nodes[0].members[0].intersections
+        assert intersection.request_id == 6
+        assert intersection.status is RequestStatus.APPROVED
+        assert intersection.model_extra == {}
+        client.events.save_plan(parsed_plan)
 
     saved = seen[-1]
     assert saved.method == "POST"
@@ -228,7 +251,48 @@ def test_save_plan_round_trips() -> None:
     body = json.loads(saved.content)
     assert list(body) == ["plan"]
     assert "День" in body["plan"]
-    assert json.loads(body["plan"]) == plan
+    dumped = json.loads(body["plan"])
+    assert "$$hashKey" not in dumped[0]["nodes"][0]["members"][0]
+    del plan[0]["nodes"][0]["members"][0]["$$hashKey"]
+    assert dumped == plan
+
+
+def test_buttons_state() -> None:
+    payload = {
+        "new_request": {"state": 1, "timer": 3600},
+        "cards": {"state": 2},
+        "voting": {"state": 0},
+        "etickets": {"state": 2, "timer": 7200},
+        "media": {"state": 0},
+        "requestlist": {"state": 0},
+    }
+
+    with make_client(lambda request: json_response(payload)) as client:
+        state = client.events.get_buttons_state()
+
+    assert state.new_request.state is ButtonStateCode.UPCOMING
+    assert state.new_request.timer == 3600
+    assert state.new_request.model_extra == {}
+    assert state.cards.state is ButtonStateCode.OPEN
+    assert state.cards.timer is None
+    assert state.voting.state is ButtonStateCode.HIDDEN
+
+
+def test_buttons_state_rejects_invalid_code() -> None:
+    payload = {
+        "new_request": {"state": 9},
+        "cards": {"state": 2},
+        "voting": {"state": 0},
+        "etickets": {"state": 0},
+        "media": {"state": 0},
+        "requestlist": {"state": 0},
+    }
+
+    with (
+        make_client(lambda request: json_response(payload)) as client,
+        pytest.raises(APIResponseValidationError),
+    ):
+        client.events.get_buttons_state()
 
 
 def test_search() -> None:

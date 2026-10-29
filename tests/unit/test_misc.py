@@ -2,17 +2,20 @@
 
 import json
 from collections.abc import Callable
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx2
 import pytest
 
-from cosplay2py import BadRequestError
-from cosplay2py.models import PageType
+from cosplay2py import APIResponseValidationError, BadRequestError
+from cosplay2py.models import EventRole, PageType
 from unit.conftest import ApiCall, json_response, make_client
 
 
-def test_get_page() -> None:
+@pytest.mark.anyio
+@pytest.mark.parametrize("page_type", list(PageType))
+async def test_get_page(api: ApiCall, page_type: PageType) -> None:
     seen: list[httpx2.Request] = []
 
     def handler(request: httpx2.Request) -> httpx2.Response:
@@ -22,7 +25,7 @@ def test_get_page() -> None:
                 "id": 12,
                 "parent_id": 10,
                 "event_id": 5,
-                "type": "page",
+                "type": str(page_type),
                 "path": "rules",
                 "show_in_menu": 1,
                 "menu_title": "Rules",
@@ -34,16 +37,34 @@ def test_get_page() -> None:
             }
         )
 
-    with make_client(handler) as client:
-        page = client.pages.get(12)
+    page = await api(handler, lambda c: c.pages.get(12))
 
     assert (page.id, page.parent_id, page.path) == (12, 10, "rules")
     assert page.show_in_menu is True
+    assert page.right is EventRole.GUEST
     assert page.content == "<p>Be nice</p>"
     assert page.model_extra == {}
+    assert page.type is page_type
+    assert json.loads(page.model_dump_json())["type"] == page_type
     (request,) = seen
     assert request.url.path == "/api/pages/get_page"
     assert json.loads(request.content) == {"page_id": "12"}
+
+
+def test_get_page_rejects_unknown_page_type() -> None:
+    payload = {
+        "id": 12,
+        "type": "unknown_page_type",
+        "path": "rules",
+        "show_in_menu": 1,
+        "title": "Festival rules",
+        "right": 0,
+    }
+    with (
+        make_client(lambda request: json_response(payload)) as client,
+        pytest.raises(APIResponseValidationError),
+    ):
+        client.pages.get(12)
 
 
 @pytest.mark.anyio
@@ -137,6 +158,11 @@ def test_delete_non_empty_folder() -> None:
             "pages/page_reorder",
             {"page_id": 12, "new_index": 1, "source_page_id": 3, "target_page_id": 4},
         ),
+        (
+            lambda c: c.media.add_album("Photographer", "https://vk.com/album1_2"),
+            "media/photoalbum_add",
+            {"user_title": "Photographer", "url": "https://vk.com/album1_2"},
+        ),
     ],
 )
 async def test_new_writes(
@@ -174,3 +200,70 @@ async def test_design_images(api: ApiCall, upload: bool) -> None:
     else:
         result = await api(handler, lambda c: c.design.delete_image("sample.png"))
     assert result == {2: "other.png"}
+
+
+def test_media_get_data() -> None:
+    payload = {
+        "albums": [
+            {
+                "id": 678,
+                "event_id": 1583,
+                "user_title": "Photographer",
+                "user_id": None,
+                "url": "https://vk.com/album1_2",
+                "time_add": "2026-10-29 16:58:11",
+                "count": 42,
+                "likes": 100,
+                "recalc_time": None,
+                "recalc_message": None,
+            }
+        ],
+        "photos": [
+            {
+                "id": 1,
+                "photoalbum_id": 678,
+                "user_title": "Photographer",
+                "likes": 15,
+                "src": "https://example.com/thumb.jpg",
+                "photo_url": "https://vk.com/photo1_2",
+            }
+        ],
+    }
+
+    with make_client(lambda request: json_response(payload)) as client:
+        data = client.media.get_data()
+
+    (album,) = data.albums
+    assert album.id == 678
+    assert album.time_add == datetime(2026, 10, 29, 16, 58, 11, tzinfo=UTC)
+    assert album.model_extra == {}
+    (photo,) = data.photos
+    assert photo.likes == 15
+    assert photo.model_extra == {}
+
+
+def test_etickets_get_paymethods() -> None:
+    payload = {
+        "etickets_paymethods": {
+            "yookassa_allowed": True,
+            "yookassa_enabled": "1",
+            "yookassa_shop_id": "12345",
+            "yookassa_api_key": "secret",
+            "yookassa_vat_code": 1,
+            "yandex_enabled": "0",
+            "yandex_account": None,
+            "yandex_secret": None,
+            "manual_enabled": 1,
+            "manual_text": "Send to card",
+        }
+    }
+
+    with make_client(lambda request: json_response(payload)) as client:
+        pm = client.etickets.get_paymethods()
+
+    assert pm.yookassa_allowed is True
+    assert pm.yookassa_enabled is True
+    assert pm.yandex_enabled is False
+    assert pm.manual_enabled is True
+    assert pm.yookassa_vat_code == 1
+    assert pm.model_extra == {}

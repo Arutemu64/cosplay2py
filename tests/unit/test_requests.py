@@ -6,14 +6,21 @@ from typing import Any
 import httpx2
 import pytest
 
-from cosplay2py.models import RequestStatus
+from cosplay2py import APIResponseValidationError
+from cosplay2py.models import (
+    EventRole,
+    FeedbackMark,
+    RequestStatus,
+    TopicFieldType,
+)
 from unit.conftest import TOPIC, ApiCall, json_response, make_client
 
 pytestmark = pytest.mark.anyio
 
 
 @pytest.mark.parametrize("status", ["approved", "new"])
-async def test_get(api: ApiCall, status: str) -> None:
+@pytest.mark.parametrize("field_type", list(TopicFieldType))
+async def test_get(api: ApiCall, status: str, field_type: TopicFieldType) -> None:
     payload = {
         "message": "ok",
         "editEnabled": True,
@@ -26,6 +33,8 @@ async def test_get(api: ApiCall, status: str) -> None:
             "number": 3,
             "status": status,
             "creation_time": "2026-07-06 16:40:23",
+            "win": 1,
+            "score": 6,
             "ER": 5,
         },
         "author": {
@@ -53,7 +62,7 @@ async def test_get(api: ApiCall, status: str) -> None:
                 "id": 200,
                 "section_id": 100,
                 "title": "Character",
-                "type": "select",
+                "type": str(field_type),
                 "order": 1,
                 "hint": "",
                 "data": '["A","B"]',
@@ -76,7 +85,7 @@ async def test_get(api: ApiCall, status: str) -> None:
                 "update_time": "2026-07-06 16:40:25",
             }
         ],
-        "scores": [],
+        "scores": [{"user_id": 2, "user_title": "Jury", "score": 6}],
     }
 
     def handler(request: httpx2.Request) -> httpx2.Response:
@@ -86,10 +95,52 @@ async def test_get(api: ApiCall, status: str) -> None:
     details = await api(handler, lambda c: c.requests.get(5))
 
     assert details.request.status is RequestStatus(status)
-    assert details.request.er == 5
+    assert details.request.er is EventRole.ORG
+    assert details.request.win == 1
+    assert details.request.score == 6
     assert details.edit_enabled is True
+    assert details.scores[0].user_id == 2
+    assert details.scores[0].score == 6
+    assert details.scores[0].model_extra == {}
     assert details.fields[0].options == ["A", "B"]
+    assert details.fields[0].type is field_type
+    assert json.loads(details.fields[0].model_dump_json())["type"] == field_type
     assert details.values_by_field() == {"character": ["A"]}
+
+
+def test_get_rejects_unknown_field_type() -> None:
+    payload = {
+        "message": "ok",
+        "request": {
+            "id": 5,
+            "event_id": 10,
+            "topic_id": 1,
+            "user_id": 7,
+            "number": 3,
+            "status": "approved",
+        },
+        "author": {"user_id": 7},
+        "topic": TOPIC,
+        "sections": [],
+        "fields": [
+            {
+                "id": 200,
+                "section_id": 100,
+                "title": "Character",
+                "type": "unknown_field_type",
+                "order": 1,
+                "visible_to_all": 1,
+            }
+        ],
+        "reqsections": [],
+        "reqvalues": [],
+    }
+
+    with (
+        make_client(lambda request: json_response(payload)) as client,
+        pytest.raises(APIResponseValidationError),
+    ):
+        client.requests.get(5)
 
 
 @pytest.mark.parametrize(
@@ -333,7 +384,7 @@ def test_change_topic_conflict() -> None:
         "max_repeat": 1,
         "visible_to_all": 1,
         "registration_blanks": 1,
-        "internal_name": "about",
+        "internal_name": "common_video",
     }
     field = {
         "id": 5,
@@ -473,11 +524,24 @@ async def test_feedbacks(api: ApiCall, action: str) -> None:
 
     calls = {
         "get": lambda c: c.requests.get_feedbacks(42, 3),
-        "add": lambda c: c.requests.add_feedback(42, 3, -1, "Example"),
+        "add": lambda c: c.requests.add_feedback(
+            42, 3, FeedbackMark.NEGATIVE, "Example"
+        ),
         "del": lambda c: c.requests.delete_feedback(42, 3, 5),
     }
     (feedback,) = await api(handler, calls[action])
-    assert feedback.mark == -1
+    assert feedback.mark is FeedbackMark.NEGATIVE
     assert feedback.create_time == datetime(2025, 6, 1, 12, tzinfo=UTC)
     assert feedback.org_image_update_time == datetime(1970, 1, 1, tzinfo=UTC)
     assert feedback.model_extra == {}
+
+
+@pytest.mark.parametrize(
+    ("bad_mark", "exc"), [(True, TypeError), (2, ValueError), (-2, ValueError)]
+)
+def test_add_feedback_rejects_invalid_mark(bad_mark: Any, exc: type[Exception]) -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        raise AssertionError("no request expected")
+
+    with make_client(handler) as client, pytest.raises(exc):
+        client.requests.add_feedback(42, 3, bad_mark, "Example")

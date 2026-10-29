@@ -5,7 +5,9 @@ from typing import Any
 
 from pydantic import Field
 
+from cosplay2py._types import UTCDateTime
 from cosplay2py.models._base import Cosplay2Model
+from cosplay2py.models.common import EventRole
 
 
 class PageType(StrEnum):
@@ -26,11 +28,11 @@ class Page(Cosplay2Model):
     """The folder the page sits in, or ``None`` at the top level."""
     path: str
     """URL slug of the page; the target URL for a ``link``."""
-    type: str
+    type: PageType
     title: str
     menu_title: str | None = None
     show_in_menu: bool
-    right: int
+    right: EventRole
     """Minimum role required to view the page."""
 
 
@@ -46,13 +48,49 @@ class PageDetails(Page):
     """HTML shown on the site."""
 
 
+class MediaAlbum(Cosplay2Model):
+    """A photo album linked to the event."""
+
+    id: int
+    event_id: int | None = None
+    user_id: int | None = None
+    user_title: str | None = None
+    """Photographer's name."""
+    url: str | None = None
+    time_add: UTCDateTime | None = None
+    count: int | None = None
+    likes: int | None = None
+    recalc_time: UTCDateTime | None = None
+    recalc_message: str | None = None
+
+
+class MediaPhoto(Cosplay2Model):
+    """A photo from a linked album."""
+
+    id: int | None = None
+    photoalbum_id: int | None = None
+    user_title: str | None = None
+    likes: int | None = None
+    src: str | None = None
+    photo_url: str | None = None
+
+
 class MediaData(Cosplay2Model):
-    albums: list[Any] = Field(default_factory=list)
-    photos: list[Any] = Field(default_factory=list)
+    albums: list[MediaAlbum] = Field(default_factory=list)
+    photos: list[MediaPhoto] = Field(default_factory=list)
 
 
 class PayMethods(Cosplay2Model):
     yookassa_allowed: bool
+    yookassa_enabled: bool | None = None
+    yookassa_shop_id: str | None = None
+    yookassa_api_key: str | None = None
+    yookassa_vat_code: int | None = None
+    yandex_enabled: bool | None = None
+    yandex_account: str | None = None
+    yandex_secret: str | None = None
+    manual_enabled: bool | None = None
+    manual_text: str | None = None
 
 
 class TicketStatistic(Cosplay2Model):

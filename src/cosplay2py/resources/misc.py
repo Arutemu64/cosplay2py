@@ -42,6 +42,7 @@ def _get_page(page_id: int) -> Endpoint[PageDetails]:
 
 
 def _add_page(type: PageType, parent_id: int | None) -> Endpoint[int]:
+    type = PageType(type)
     return Endpoint(
         "POST",
         "/api/pages/add_page",
@@ -85,6 +86,18 @@ def _delete_page(page_id: int) -> Endpoint[Any]:
 _MEDIA_GET_DATA = Endpoint[MediaData](
     "GET", "/api/media/get_data", MediaData, idempotent=True
 )
+
+
+def _add_photoalbum(user_title: str, url: str) -> Endpoint[Any]:
+    return Endpoint(
+        "POST",
+        "/api/media/photoalbum_add",
+        Any,
+        json={"user_title": user_title, "url": url},
+        idempotent=False,
+    )
+
+
 _ETICKETS_GET_LIST = Endpoint[list[dict[str, Any]]](
     "GET",
     "/api/etickets/get_list",
@@ -332,11 +345,27 @@ class Media(SyncResource):
         """Photo albums and photos."""
         return self._request(_MEDIA_GET_DATA)
 
+    def add_album(self, user_title: str, url: str) -> None:
+        """Link a photo album to the event.
+
+        :param user_title: photographer's name.
+        :param url: album URL (e.g. a VK album link).
+        """
+        self._request(_add_photoalbum(user_title, url))
+
 
 class AsyncMedia(AsyncResource):
     async def get_data(self) -> MediaData:
         """Photo albums and photos."""
         return await self._request(_MEDIA_GET_DATA)
+
+    async def add_album(self, user_title: str, url: str) -> None:
+        """Link a photo album to the event.
+
+        :param user_title: photographer's name.
+        :param url: album URL (e.g. a VK album link).
+        """
+        await self._request(_add_photoalbum(user_title, url))
 
 
 class ETickets(SyncResource):

@@ -4,6 +4,7 @@ from cosplay2py._base_client import Endpoint
 from cosplay2py.models import (
     Comment,
     Feedback,
+    FeedbackMark,
     NewRequestSection,
     RequestDetails,
     RequestStatus,
@@ -157,6 +158,7 @@ def _get_user(request_id: int, user_id: int) -> Endpoint[RequestUserInfo]:
 
 
 def _set_status(request_id: int, status: RequestStatus) -> Endpoint[StatusChange]:
+    status = RequestStatus(status)
     return Endpoint(
         "POST",
         "/api/requests/set_status",
@@ -249,6 +251,15 @@ def _feedbacks(
         json={"request_id": request_id, "user_id": user_id, **(fields or {})},
         idempotent=action == "get",
     )
+
+
+def _add_feedback(
+    request_id: int, user_id: int, mark: FeedbackMark, info: str
+) -> Endpoint[list[Feedback]]:
+    if isinstance(mark, bool):
+        raise TypeError(f"{mark!r} is not a valid FeedbackMark")
+    mark = FeedbackMark(mark)
+    return _feedbacks("add", request_id, user_id, {"mark": str(mark), "info": info})
 
 
 class Requests(SyncResource):
@@ -425,15 +436,13 @@ class Requests(SyncResource):
         return self._request(_feedbacks("get", request_id, user_id))
 
     def add_feedback(
-        self, request_id: int, user_id: int, mark: int, info: str
+        self, request_id: int, user_id: int, mark: FeedbackMark, info: str
     ) -> list[Feedback]:
         """Add feedback and return the updated feedback list.
 
         :param mark: negative (-1), neutral (0), or positive (1).
         """
-        return self._request(
-            _feedbacks("add", request_id, user_id, {"mark": str(mark), "info": info})
-        )
+        return self._request(_add_feedback(request_id, user_id, mark, info))
 
     def delete_feedback(
         self, request_id: int, user_id: int, feedback_id: int
@@ -624,15 +633,13 @@ class AsyncRequests(AsyncResource):
         return await self._request(_feedbacks("get", request_id, user_id))
 
     async def add_feedback(
-        self, request_id: int, user_id: int, mark: int, info: str
+        self, request_id: int, user_id: int, mark: FeedbackMark, info: str
     ) -> list[Feedback]:
         """Add feedback and return the updated feedback list.
 
         :param mark: negative (-1), neutral (0), or positive (1).
         """
-        return await self._request(
-            _feedbacks("add", request_id, user_id, {"mark": str(mark), "info": info})
-        )
+        return await self._request(_add_feedback(request_id, user_id, mark, info))
 
     async def delete_feedback(
         self, request_id: int, user_id: int, feedback_id: int
