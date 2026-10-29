@@ -7,6 +7,8 @@ means a breaking change.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-29
+
 ### Added
 
 - Domain enums `ButtonStateCode`, `EventRole`, `EventStatus`, `EventTime`,
@@ -53,5 +55,6 @@ means a breaking change.
 - API reference notes, usage examples, and offline tests covering both clients
   and asyncio/Trio, with CI for Python 3.12-3.15 and package installation.
 
-[Unreleased]: https://github.com/Arutemu64/cosplay2py/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/Arutemu64/cosplay2py/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/Arutemu64/cosplay2py/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Arutemu64/cosplay2py/releases/tag/v0.1.0
