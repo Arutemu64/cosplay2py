@@ -8,9 +8,7 @@ from cosplay2py.models import (
     AlphabetRegistration,
     Blank,
     BlankId,
-    ButtonsState,
     Deadline,
-    DomainCheck,
     Event,
     EventBrief,
     EventStaff,
@@ -43,15 +41,19 @@ _GET_TOPICS_STATISTIC = Endpoint[list[TopicStatistic]](
     key="stats",
     idempotent=True,
 )
-_GET_BUTTONS_STATE = Endpoint[ButtonsState](
-    "GET", "/api/events/get_buttons_state_1", ButtonsState, idempotent=True
-)
 _GET_STAFF = Endpoint[EventStaff](
     "GET", "/api/events/get_orgs_curators", EventStaff, idempotent=True
+)
+_GET_WINNERS = Endpoint[dict[str, Any]](
+    "GET", "/api/events/winners", dict[str, Any], idempotent=True
 )
 _GET_PLAN = Endpoint[list[PlanNode]](
     "GET", "/api/events/get_plan", Plan, key="plan", idempotent=True
 )
+
+
+def _write(path: str, body: dict[str, Any]) -> Endpoint[Any]:
+    return Endpoint("POST", f"/api/events/{path}", Any, json=body, idempotent=False)
 
 
 # These two reports come back as data rather than rendered HTML.
@@ -95,16 +97,6 @@ def _get_blank(
         )
     return _blank_endpoint(
         blank_id, Blank, req_approved, req_disapproved, req_other, picture_height
-    )
-
-
-def _check_external_domain(domain: str) -> Endpoint[DomainCheck]:
-    return Endpoint(
-        "POST",
-        "/api/events/check_external_domain",
-        DomainCheck,
-        json={"domain": domain},
-        idempotent=True,
     )
 
 
@@ -163,6 +155,14 @@ class Events(SyncResource):
         """Event settings: title, dates, timezone, design, ..."""
         return self._request(_GET_SETTINGS)
 
+    def save_setting(self, field: str, value: Any) -> None:
+        """Set an event setting attribute.
+
+        :param field: the ``Event`` attribute to set, e.g. ``title``, ``short_title``,
+            ``description``, ``geo_id``, ``start_time``, ``end_time`` or ``status``.
+        """
+        self._request(_write("save_setting", {"event_field": field, "data": value}))
+
     def get_state(self) -> EventState:
         """Request counters for the whole event."""
         return self._request(_GET_STATE)
@@ -175,12 +175,35 @@ class Events(SyncResource):
         """Request counters per topic."""
         return self._request(_GET_TOPICS_STATISTIC)
 
-    def get_buttons_state(self) -> ButtonsState:
-        return self._request(_GET_BUTTONS_STATE)
-
     def get_staff(self) -> EventStaff:
         """Organizers, topic curators and the main organizer."""
         return self._request(_GET_STAFF)
+
+    def add_org(self, user_id: int) -> None:
+        """Add an organizer to the event."""
+        self._request(_write("add_org", {"user_id": user_id}))
+
+    def delete_org(self, user_id: int) -> None:
+        """Remove an organizer from the event."""
+        self._request(_write("delete_org", {"user_id": user_id}))
+
+    def change_main_org(self, user_id: int) -> None:
+        """Transfer the main organizer role to ``user_id``."""
+        self._request(_write("change_mainorg", {"user_id": user_id}))
+
+    def add_curator(self, user_id: int, topic_id: int) -> None:
+        """Assign ``user_id`` as a curator of ``topic_id``."""
+        self._request(_write("add_curator", {"user_id": user_id, "topic_id": topic_id}))
+
+    def delete_curator(self, user_id: int, topic_id: int) -> None:
+        """Remove ``user_id`` as a curator of ``topic_id``."""
+        self._request(
+            _write("delete_curator", {"user_id": user_id, "topic_id": topic_id})
+        )
+
+    def get_winners(self) -> dict[str, Any]:
+        """Topics and winning requests of the event."""
+        return self._request(_GET_WINNERS)
 
     def get_plan(self) -> list[PlanNode]:
         """The schedule tree built in the planner (days -> places -> blocks)."""
@@ -265,10 +288,6 @@ class Events(SyncResource):
             )
         )
 
-    def check_external_domain(self, domain: str) -> DomainCheck:
-        """Check whether ``domain`` resolves to Cosplay2 and can be attached to the event."""
-        return self._request(_check_external_domain(domain))
-
     def search(self, query: str) -> list[EventBrief]:
         """All Cosplay2 events whose title matches ``query``."""
         return self._request(_search(query))
@@ -284,6 +303,50 @@ class Events(SyncResource):
         """
         self._request(_set_deadline(topic_id, deadline, time))
 
+    def filter_list(self, active_year: str) -> Any:
+        """Portal events for the selected year."""
+        return self._request(
+            Endpoint(
+                "POST",
+                "/api/events/filter_list",
+                Any,
+                json={"active_year": active_year},
+                idempotent=True,
+            )
+        )
+
+    def get_types(self) -> Any:
+        """Portal event types."""
+        return self._request(
+            Endpoint("GET", "/api/events/get_types", Any, idempotent=True)
+        )
+
+    def create_festival(self, form: dict[str, Any]) -> int:
+        """Create a festival from the portal's creation form."""
+        return self._request(
+            Endpoint(
+                "POST",
+                "/api/events/create_festival",
+                int,
+                key="new_event_id",
+                json=dict(form),
+                idempotent=False,
+            )
+        )
+
+    def create_festival_logo(self, filename: str, content: bytes) -> str:
+        """Upload a creation-form logo and return its temporary filename."""
+        return self._request(
+            Endpoint(
+                "POST",
+                "/api/events/create_festival_logo",
+                str,
+                key="logofilename",
+                files={"mainlogo": (filename, content)},
+                idempotent=False,
+            )
+        )
+
 
 class AsyncEvents(AsyncResource):
     """The event the client is bound to."""
@@ -291,6 +354,16 @@ class AsyncEvents(AsyncResource):
     async def get_settings(self) -> Event:
         """Event settings: title, dates, timezone, design, ..."""
         return await self._request(_GET_SETTINGS)
+
+    async def save_setting(self, field: str, value: Any) -> None:
+        """Set an event setting attribute.
+
+        :param field: the ``Event`` attribute to set, e.g. ``title``, ``short_title``,
+            ``description``, ``geo_id``, ``start_time``, ``end_time`` or ``status``.
+        """
+        await self._request(
+            _write("save_setting", {"event_field": field, "data": value})
+        )
 
     async def get_state(self) -> EventState:
         """Request counters for the whole event."""
@@ -304,12 +377,37 @@ class AsyncEvents(AsyncResource):
         """Request counters per topic."""
         return await self._request(_GET_TOPICS_STATISTIC)
 
-    async def get_buttons_state(self) -> ButtonsState:
-        return await self._request(_GET_BUTTONS_STATE)
-
     async def get_staff(self) -> EventStaff:
         """Organizers, topic curators and the main organizer."""
         return await self._request(_GET_STAFF)
+
+    async def add_org(self, user_id: int) -> None:
+        """Add an organizer to the event."""
+        await self._request(_write("add_org", {"user_id": user_id}))
+
+    async def delete_org(self, user_id: int) -> None:
+        """Remove an organizer from the event."""
+        await self._request(_write("delete_org", {"user_id": user_id}))
+
+    async def change_main_org(self, user_id: int) -> None:
+        """Transfer the main organizer role to ``user_id``."""
+        await self._request(_write("change_mainorg", {"user_id": user_id}))
+
+    async def add_curator(self, user_id: int, topic_id: int) -> None:
+        """Assign ``user_id`` as a curator of ``topic_id``."""
+        await self._request(
+            _write("add_curator", {"user_id": user_id, "topic_id": topic_id})
+        )
+
+    async def delete_curator(self, user_id: int, topic_id: int) -> None:
+        """Remove ``user_id`` as a curator of ``topic_id``."""
+        await self._request(
+            _write("delete_curator", {"user_id": user_id, "topic_id": topic_id})
+        )
+
+    async def get_winners(self) -> dict[str, Any]:
+        """Topics and winning requests of the event."""
+        return await self._request(_GET_WINNERS)
 
     async def get_plan(self) -> list[PlanNode]:
         """The schedule tree built in the planner (days -> places -> blocks)."""
@@ -394,10 +492,6 @@ class AsyncEvents(AsyncResource):
             )
         )
 
-    async def check_external_domain(self, domain: str) -> DomainCheck:
-        """Check whether ``domain`` resolves to Cosplay2 and can be attached to the event."""
-        return await self._request(_check_external_domain(domain))
-
     async def search(self, query: str) -> list[EventBrief]:
         """All Cosplay2 events whose title matches ``query``."""
         return await self._request(_search(query))
@@ -412,3 +506,47 @@ class AsyncEvents(AsyncResource):
             as shown by :meth:`get_topics_state`; seconds are dropped.
         """
         await self._request(_set_deadline(topic_id, deadline, time))
+
+    async def filter_list(self, active_year: str) -> Any:
+        """Portal events for the selected year."""
+        return await self._request(
+            Endpoint(
+                "POST",
+                "/api/events/filter_list",
+                Any,
+                json={"active_year": active_year},
+                idempotent=True,
+            )
+        )
+
+    async def get_types(self) -> Any:
+        """Portal event types."""
+        return await self._request(
+            Endpoint("GET", "/api/events/get_types", Any, idempotent=True)
+        )
+
+    async def create_festival(self, form: dict[str, Any]) -> int:
+        """Create a festival from the portal's creation form."""
+        return await self._request(
+            Endpoint(
+                "POST",
+                "/api/events/create_festival",
+                int,
+                key="new_event_id",
+                json=dict(form),
+                idempotent=False,
+            )
+        )
+
+    async def create_festival_logo(self, filename: str, content: bytes) -> str:
+        """Upload a creation-form logo and return its temporary filename."""
+        return await self._request(
+            Endpoint(
+                "POST",
+                "/api/events/create_festival_logo",
+                str,
+                key="logofilename",
+                files={"mainlogo": (filename, content)},
+                idempotent=False,
+            )
+        )

@@ -1,18 +1,18 @@
 import json
+from collections.abc import Callable
 from datetime import UTC, datetime
+from typing import Any
 
 import httpx2
 import pytest
 
-from cosplay2py import APIResponseValidationError
 from cosplay2py.models import (
     BlankId,
-    ButtonStateCode,
     Deadline,
     PlanNodeType,
     RequestStatus,
 )
-from unit.conftest import json_response, make_client
+from unit.conftest import ApiCall, json_response, make_client
 
 
 def test_parses_reg_topics() -> None:
@@ -257,44 +257,6 @@ def test_save_plan_round_trips() -> None:
     assert dumped == plan
 
 
-def test_buttons_state() -> None:
-    payload = {
-        "new_request": {"state": 1, "timer": 3600},
-        "cards": {"state": 2},
-        "voting": {"state": 0},
-        "etickets": {"state": 2, "timer": 7200},
-        "media": {"state": 0},
-        "requestlist": {"state": 0},
-    }
-
-    with make_client(lambda request: json_response(payload)) as client:
-        state = client.events.get_buttons_state()
-
-    assert state.new_request.state is ButtonStateCode.UPCOMING
-    assert state.new_request.timer == 3600
-    assert state.new_request.model_extra == {}
-    assert state.cards.state is ButtonStateCode.OPEN
-    assert state.cards.timer is None
-    assert state.voting.state is ButtonStateCode.HIDDEN
-
-
-def test_buttons_state_rejects_invalid_code() -> None:
-    payload = {
-        "new_request": {"state": 9},
-        "cards": {"state": 2},
-        "voting": {"state": 0},
-        "etickets": {"state": 0},
-        "media": {"state": 0},
-        "requestlist": {"state": 0},
-    }
-
-    with (
-        make_client(lambda request: json_response(payload)) as client,
-        pytest.raises(APIResponseValidationError),
-    ):
-        client.events.get_buttons_state()
-
-
 def test_search() -> None:
     seen: list[httpx2.Request] = []
 
@@ -324,3 +286,50 @@ async def test_observed_event_state(api):
     )
     assert result.topics_count == 1
     assert result.requests_total == 6
+
+
+@pytest.mark.anyio
+async def test_get_winners(api: ApiCall) -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        assert request.method == "GET"
+        assert request.url.path == "/api/events/winners"
+        return json_response({"topics": [{"id": 1}], "winners": [{"id": 10}]})
+
+    result = await api(handler, lambda c: c.events.get_winners())
+    assert result == {"topics": [{"id": 1}], "winners": [{"id": 10}]}
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("call", "path", "body"),
+    [
+        (
+            lambda c: c.events.save_setting("short_title", "FF"),
+            "save_setting",
+            {"event_field": "short_title", "data": "FF"},
+        ),
+        (lambda c: c.events.add_org(42), "add_org", {"user_id": 42}),
+        (lambda c: c.events.delete_org(42), "delete_org", {"user_id": 42}),
+        (lambda c: c.events.change_main_org(42), "change_mainorg", {"user_id": 42}),
+        (
+            lambda c: c.events.add_curator(42, 7),
+            "add_curator",
+            {"user_id": 42, "topic_id": 7},
+        ),
+        (
+            lambda c: c.events.delete_curator(42, 7),
+            "delete_curator",
+            {"user_id": 42, "topic_id": 7},
+        ),
+    ],
+)
+async def test_event_writes(
+    api: ApiCall, call: Callable[[Any], Any], path: str, body: dict[str, object]
+) -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        assert request.method == "POST"
+        assert request.url.path == f"/api/events/{path}"
+        assert json.loads(request.content) == body
+        return json_response({"message": "ok"})
+
+    assert await api(handler, call) is None

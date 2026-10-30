@@ -147,6 +147,46 @@ def _delete_image(
     )
 
 
+def _upload_file(
+    request_id: int,
+    request_section_id: int,
+    topic_field_id: int,
+    file: bytes,
+    filename: str,
+    value_id: int | None,
+) -> Endpoint[dict[str, Any]]:
+    return Endpoint(
+        "POST",
+        "/api/requests/upload_file",
+        dict[str, Any],
+        data={
+            "request_id": str(request_id),
+            "request_section_id": str(request_section_id),
+            "topic_field_id": str(topic_field_id),
+            "value_id": str(value_id or 0),
+        },
+        files={"uploaded_file": (filename, file)},
+        idempotent=False,
+    )
+
+
+def _delete_file(
+    request_id: int, request_section_id: int, topic_field_id: int, value_id: int
+) -> Endpoint[Any]:
+    return Endpoint(
+        "POST",
+        "/api/requests/delete_file",
+        Any,
+        json={
+            "request_id": request_id,
+            "request_section_id": str(request_section_id),
+            "topic_field_id": topic_field_id,
+            "value_id": str(value_id),
+        },
+        idempotent=False,
+    )
+
+
 def _get_user(request_id: int, user_id: int) -> Endpoint[RequestUserInfo]:
     return Endpoint(
         "POST",
@@ -202,6 +242,38 @@ def _create_section(
             "ord": order,
         },
         idempotent=False,
+    )
+
+
+def _delete_section(request_id: int, request_section_id: int) -> Endpoint[Any]:
+    return Endpoint(
+        "POST",
+        "/api/requests/delete_reqsection",
+        Any,
+        json={"request_id": request_id, "request_section_id": request_section_id},
+        idempotent=False,
+    )
+
+
+def _generate_voting_number(request_id: int) -> Endpoint[int]:
+    return Endpoint(
+        "POST",
+        "/api/requests/generate_voting_num",
+        int,
+        key="voting_number",
+        json={"request_id": request_id},
+        idempotent=False,
+    )
+
+
+def _search(query: str) -> Endpoint[list[dict[str, Any]]]:
+    return Endpoint(
+        "POST",
+        "/api/requests/search",
+        list[dict[str, Any]],
+        key="requests",
+        json={"search_text": query},
+        idempotent=True,
     )
 
 
@@ -359,6 +431,46 @@ class Requests(SyncResource):
             _delete_image(request_id, request_section_id, topic_field_id, value_id)
         )
 
+    def upload_file(
+        self,
+        request_id: int,
+        request_section_id: int,
+        topic_field_id: int,
+        file: bytes,
+        filename: str,
+        *,
+        value_id: int | None = None,
+    ) -> dict[str, Any]:
+        """Upload a file into a ``file`` field of a request.
+
+        :param file: the file's contents.
+        :param filename: the file's name.
+        :param value_id: ``RequestValue.id`` of the field's current value, if any;
+            the site sends ``0`` for an empty field.
+        """
+        return self._request(
+            _upload_file(
+                request_id,
+                request_section_id,
+                topic_field_id,
+                file,
+                filename,
+                value_id,
+            )
+        )
+
+    def delete_file(
+        self,
+        request_id: int,
+        request_section_id: int,
+        topic_field_id: int,
+        value_id: int,
+    ) -> None:
+        """Remove the file stored as ``value_id`` from a ``file`` field."""
+        self._request(
+            _delete_file(request_id, request_section_id, topic_field_id, value_id)
+        )
+
     def get_user(self, request_id: int, user_id: int) -> RequestUserInfo:
         """A participant of the request and their other requests in this event."""
         return self._request(_get_user(request_id, user_id))
@@ -393,6 +505,18 @@ class Requests(SyncResource):
             ``0``.
         """
         return self._request(_create_section(request_id, topic_section_id, order))
+
+    def delete_section(self, request_id: int, request_section_id: int) -> None:
+        """Remove a repeated section (``RequestSection.id``) from a request."""
+        self._request(_delete_section(request_id, request_section_id))
+
+    def generate_voting_number(self, request_id: int) -> int:
+        """Assign and return the next voting number for a request."""
+        return self._request(_generate_voting_number(request_id))
+
+    def search(self, query: str) -> list[dict[str, Any]]:
+        """Search requests in the event by text."""
+        return self._request(_search(query))
 
     def change_topic(
         self, request_id: int, target_topic_id: int, *, force: bool = False
@@ -552,6 +676,46 @@ class AsyncRequests(AsyncResource):
             _delete_image(request_id, request_section_id, topic_field_id, value_id)
         )
 
+    async def upload_file(
+        self,
+        request_id: int,
+        request_section_id: int,
+        topic_field_id: int,
+        file: bytes,
+        filename: str,
+        *,
+        value_id: int | None = None,
+    ) -> dict[str, Any]:
+        """Upload a file into a ``file`` field of a request.
+
+        :param file: the file's contents.
+        :param filename: the file's name.
+        :param value_id: ``RequestValue.id`` of the field's current value, if any;
+            the site sends ``0`` for an empty field.
+        """
+        return await self._request(
+            _upload_file(
+                request_id,
+                request_section_id,
+                topic_field_id,
+                file,
+                filename,
+                value_id,
+            )
+        )
+
+    async def delete_file(
+        self,
+        request_id: int,
+        request_section_id: int,
+        topic_field_id: int,
+        value_id: int,
+    ) -> None:
+        """Remove the file stored as ``value_id`` from a ``file`` field."""
+        await self._request(
+            _delete_file(request_id, request_section_id, topic_field_id, value_id)
+        )
+
     async def get_user(self, request_id: int, user_id: int) -> RequestUserInfo:
         """A participant of the request and their other requests in this event."""
         return await self._request(_get_user(request_id, user_id))
@@ -586,6 +750,18 @@ class AsyncRequests(AsyncResource):
             ``0``.
         """
         return await self._request(_create_section(request_id, topic_section_id, order))
+
+    async def delete_section(self, request_id: int, request_section_id: int) -> None:
+        """Remove a repeated section (``RequestSection.id``) from a request."""
+        await self._request(_delete_section(request_id, request_section_id))
+
+    async def generate_voting_number(self, request_id: int) -> int:
+        """Assign and return the next voting number for a request."""
+        return await self._request(_generate_voting_number(request_id))
+
+    async def search(self, query: str) -> list[dict[str, Any]]:
+        """Search requests in the event by text."""
+        return await self._request(_search(query))
 
     async def change_topic(
         self, request_id: int, target_topic_id: int, *, force: bool = False

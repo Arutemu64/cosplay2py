@@ -1,9 +1,17 @@
-from enum import StrEnum
+from enum import IntEnum, StrEnum
 from typing import Annotated, Any, Literal
 
 from cosplay2py._types import EmptyAsNone, LocalDateTime, UTCDateTime
 from cosplay2py.models._base import Cosplay2Model
 from cosplay2py.models.common import RequestStatus
+
+
+class CardField(IntEnum):
+    """Which generated card field to rebuild with ``topics.generate_card_titles``."""
+
+    VOTING_TITLE = 1
+    ANNOUNCEMENT_TITLE = 2
+    DIPLOM_TITLE = 3
 
 
 class TopicCategory(StrEnum):

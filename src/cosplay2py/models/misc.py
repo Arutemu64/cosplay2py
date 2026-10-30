@@ -1,6 +1,6 @@
 """Models for the smaller resources: pages, media, e-tickets and voting tickets."""
 
-from enum import StrEnum
+from enum import IntEnum, StrEnum
 from typing import Any
 
 from pydantic import Field
@@ -80,17 +80,25 @@ class MediaData(Cosplay2Model):
     photos: list[MediaPhoto] = Field(default_factory=list)
 
 
-class PayMethods(Cosplay2Model):
-    yookassa_allowed: bool
-    yookassa_enabled: bool | None = None
-    yookassa_shop_id: str | None = None
-    yookassa_api_key: str | None = None
-    yookassa_vat_code: int | None = None
-    yandex_enabled: bool | None = None
-    yandex_account: str | None = None
-    yandex_secret: str | None = None
-    manual_enabled: bool | None = None
-    manual_text: str | None = None
+class TicketKind(IntEnum):
+    """Kind of voting tickets created by ``tickets.create``."""
+
+    TEST = 1
+    WORK = 2
+
+
+class TicketCreateMode(StrEnum):
+    """Whether ``tickets.create`` adds to existing tickets or replaces them."""
+
+    ADD = "add"
+    REPLACE = "replace"
+
+
+class VotingType(StrEnum):
+    """Whether a voting call is for live audience voting or test voting."""
+
+    NORMAL = "normal"
+    TEST = "test"
 
 
 class TicketStatistic(Cosplay2Model):

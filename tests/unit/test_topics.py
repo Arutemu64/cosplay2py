@@ -7,6 +7,7 @@ import httpx2
 import pytest
 
 from cosplay2py.models import (
+    CardField,
     FieldTemplate,
     PublicRequests,
     RequestStatus,
@@ -256,6 +257,24 @@ async def test_writes(
             "topics/section_reorder",
             {"topic_id": 7, "section_id": 3, "new_index": 2},
         ),
+        (
+            lambda c: c.topics.reorder_field(
+                7, 5, 1, source_section_id=3, target_section_id=4
+            ),
+            "topics/field_reorder",
+            {
+                "topic_id": 7,
+                "source_section_id": 3,
+                "target_section_id": 4,
+                "field_id": 5,
+                "new_index": 1,
+            },
+        ),
+        (
+            lambda c: c.topics.reorder_requests(7),
+            "topics/reorder_requests",
+            {"topic_id": 7},
+        ),
     ],
 )
 async def test_new_writes(
@@ -268,3 +287,72 @@ async def test_new_writes(
         return json_response({"message": "ok"})
 
     assert await api(handler, call) is None
+
+
+@pytest.mark.anyio
+async def test_generate_card_titles(api: ApiCall) -> None:
+    req = {
+        "id": 10,
+        "number": 1,
+        "status": "approved",
+        "user_id": 7,
+        "voting_title": "Card 1",
+    }
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        assert request.method == "POST"
+        assert request.url.path == "/api/topics/generate_cards_title"
+        assert json.loads(request.content) == {"topic_id": 7, "field_num": 2}
+        return json_response({"message": "ok", "requests": [req]})
+
+    (parsed,) = await api(
+        handler,
+        lambda c: c.topics.generate_card_titles(7, CardField.ANNOUNCEMENT_TITLE),
+    )
+    assert parsed.id == 10
+    assert parsed.voting_title == "Card 1"
+
+
+@pytest.mark.parametrize(
+    ("bad_field", "exc"), [(True, TypeError), (0, ValueError), (4, ValueError)]
+)
+def test_generate_card_titles_rejects_invalid_field(
+    bad_field: Any, exc: type[Exception]
+) -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        raise AssertionError("no request expected")
+
+    with make_client(handler) as client, pytest.raises(exc):
+        client.topics.generate_card_titles(7, bad_field)
+
+
+@pytest.mark.anyio
+async def test_group_topics(api: ApiCall) -> None:
+    def get_handler(request: httpx2.Request) -> httpx2.Response:
+        assert request.method == "POST"
+        assert request.url.path == "/api/topics/get_with_groups"
+        assert json.loads(request.content) == {"topic_url_code": "grp"}
+        return json_response(
+            {"topic": TOPIC, "topics": [TOPIC], "child_topics": [{"id": 2}]}
+        )
+
+    group = await api(get_handler, lambda c: c.topics.get_with_groups("grp"))
+    assert group["child_topics"] == [{"id": 2}]
+
+    for action, method in [
+        ("add", lambda c: c.topics.add_child_topic("grp", 2)),
+        ("del", lambda c: c.topics.delete_child_topic("grp", 2)),
+    ]:
+
+        def child_handler(
+            request: httpx2.Request, expected: str = action
+        ) -> httpx2.Response:
+            assert request.method == "POST"
+            assert request.url.path == f"/api/topics/{expected}_child_topic"
+            assert json.loads(request.content) == {
+                "topic_url_code": "grp",
+                "child_topic_id": 2,
+            }
+            return json_response({"message": "ok", "child_topics": [{"id": 2}]})
+
+        assert await api(child_handler, method) == [{"id": 2}]

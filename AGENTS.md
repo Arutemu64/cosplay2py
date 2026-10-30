@@ -53,6 +53,43 @@ docs/api-notes.md   language-agnostic notes on the API: quirks, wire formats, en
    say what you observed and in which context, not what you guess.
 7. Add a `CHANGELOG.md` entry under `[Unreleased]` (see Versioning).
 
+## How to analyze frontend JS
+
+1. Start with the relevant site's HTML: the event host for event features, or
+   `https://cosplay2.ru/` for global portal features. Read inline scripts and `globals`,
+   and follow the actual script URLs in the page. Bundle names contain changing hashes
+   (for example, `/states.<hash>.js`, `/factories.<hash>.js`, `/zip/c2.<hash>.js`);
+   discover current URLs instead of hard-coding an old hash.
+2. Search downloaded sources with `rg` for the API path or feature name. AngularJS
+   state definitions reveal `templateUrl`, resolves, and lazy-loaded controllers
+   (`$ocLazyLoad`). Follow those references into `/js/` and `/html/`: templates often
+   contain inline controllers and API calls that are absent from the main bundles.
+   A bundle with no matches does not establish that an endpoint is unused.
+3. Trace each `$http.get`, `$http.post`, or `$upload.upload` call through its callers.
+   Record the HTTP method, path, query/body fields, defaults, omitted fields, and value
+   conversions. For a posted form object, inspect its initialization, `ng-model`s,
+   `ng-options`, radio values, watchers, and submit handler. For uploads, inspect
+   `fileFormDataName`, accompanying form data, and the success handler. Exclude `wid`
+   as described below.
+4. Trace response consumers as well: distinguish `$http.then`'s `res.data` from
+   `.success`'s response body, identify wrapper keys and returned ids, and inspect
+   templates for fields and closed domain sets. Extract enums from explicit frontend
+   constants/options; do not infer a closed set from a handful of example payloads.
+5. Compare with local HAR response bodies when available. HAR entries can omit script
+   content or encode it as base64; inspect `response.content.encoding` before reading
+   `text`. Decode downloaded text as UTF-8 so Russian labels remain readable. Keep
+   frontend evidence separate from observed API payloads: a field used in a template
+   does not prove it is always present, and an unobserved response shape stays `Any`.
+6. Record findings in `docs/api-notes.md`, including source paths, inspection date,
+   relevant role/host/context, and any uncertainty. Add offline request-shape tests
+   for both clients, including serialization, response unwrapping, and upload fields.
+   Do not execute writes to discover their behavior; live tests still require the
+   user's request and must remain read-only.
+
+Use temporary files for downloaded HTML/JS and remove your downloads after analysis.
+Never commit captures, session data, or copied personal information; use synthetic
+values in fixtures. Fetch public frontend assets without attaching local credentials.
+
 ## Conventions
 
 - Python 3.12+: PEP 695 generics (`class Foo[T]`, `def f[T]`), `X | None`, `Self`.
@@ -93,9 +130,9 @@ docs/api-notes.md   language-agnostic notes on the API: quirks, wire formats, en
   `await api(handler, lambda c: c.<resource>.<method>(...))`; prefer it for write
   endpoints. Tables of such lambdas (`test_writes`) cover the simple ``"ok"`` writes.
 - Async tests use `@pytest.mark.anyio` (asyncio and Trio backends).
-- Live tests must never create, modify or mark anything as read (that is why
-  `users.get_feeds` is excluded). `report_drift()` turns undeclared fields into
-  `UnknownFieldsWarning`; when one shows up, add the field to the model.
+- Live tests must never create, modify or mark anything as read. `report_drift()` turns
+  undeclared fields into `UnknownFieldsWarning`; when one shows up, add the field to the
+  model.
 
 ## Versioning
 

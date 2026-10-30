@@ -1,14 +1,24 @@
 [project]
 name = "cosplay2py"
 version = "0.2.0"
-description = "API wrapper for Cosplay2.ru"
+description = "Unofficial typed sync and async client for the Cosplay2.ru API"
 readme = "README.md"
 authors = [
     { name = "Arutemu64", email = "arutemu64@outlook.com" }
 ]
 license = "MIT"
 license-files = ["LICENSE"]
-keywords = ["cosplay2", "api", "client", "httpx", "pydantic", "async"]
+keywords = [
+    "cosplay2",
+    "cosplay",
+    "events",
+    "api",
+    "client",
+    "async",
+    "typed",
+    "pydantic",
+    "httpx2",
+]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",

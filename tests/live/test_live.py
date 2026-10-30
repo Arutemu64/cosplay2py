@@ -11,20 +11,18 @@ from live.conftest import report_drift
 
 pytestmark = pytest.mark.live
 
-# Endpoints that need no arguments. Feeds are left out on purpose: `onlynew` may
-# mark notifications as read for the token's owner.
+# Endpoints that need no dynamic IDs.
 NO_ARG_CALLS: dict[str, Callable[[Cosplay2], Any]] = {
     "events.get_settings": lambda c: c.events.get_settings(),
     "events.get_state": lambda c: c.events.get_state(),
     "events.get_topics_state": lambda c: c.events.get_topics_state(),
     "events.get_topics_statistic": lambda c: c.events.get_topics_statistic(),
-    "events.get_buttons_state": lambda c: c.events.get_buttons_state(),
     "events.get_staff": lambda c: c.events.get_staff(),
+    "events.get_winners": lambda c: c.events.get_winners(),
     "events.get_plan": lambda c: c.events.get_plan(),
     "events.get_blank": lambda c: c.events.get_blank(BlankId.JURY),
     "events.get_reg_topics": lambda c: c.events.get_reg_topics(),
     "events.get_reg_alphabet": lambda c: c.events.get_reg_alphabet(),
-    "events.check_external_domain": lambda c: c.events.check_external_domain(""),
     "events.search": lambda c: c.events.search("fan"),
     "topics.get_list": lambda c: c.topics.get_list(),
     "topics.get_list(with_group_text)": lambda c: c.topics.get_list(
@@ -35,18 +33,19 @@ NO_ARG_CALLS: dict[str, Callable[[Cosplay2], Any]] = {
     ),
     "topics.get_all_requests": lambda c: c.topics.get_all_requests(),
     "topics.get_requests_for_planner": lambda c: c.topics.get_requests_for_planner(),
-    "users.get_friends": lambda c: c.users.get_friends(),
     "users.search": lambda c: c.users.search("cos"),
+    "users.ratings_global": lambda c: c.users.ratings_global(),
+    "geo.code_city": lambda c: c.geo.code_city("Moscow"),
     "design.get": lambda c: c.design.get(),
     "design.get_images": lambda c: c.design.get_images(),
     "pages.get_list": lambda c: c.pages.get_list(),
     "media.get_data": lambda c: c.media.get_data(),
     "etickets.get_list": lambda c: c.etickets.get_list(),
     "etickets.get_types": lambda c: c.etickets.get_types(),
-    "etickets.get_paymethods": lambda c: c.etickets.get_paymethods(),
-    "etickets.get_vat_dictionary": lambda c: c.etickets.get_vat_dictionary(),
     "tickets.get_statistic": lambda c: c.tickets.get_statistic(),
     "tickets.get_voting_statistics": lambda c: c.tickets.get_voting_statistics(),
+    "cards.get_topics_and_cards": lambda c: c.cards.get_topics_and_cards(),
+    "cards.get_topics_and_requests": lambda c: c.cards.get_topics_and_requests(),
 }
 
 
@@ -88,8 +87,6 @@ def test_request_chain(client: Cosplay2) -> None:
     report_drift(client.requests.get_org_comments(first.id))
     report_drift(client.requests.get_user(first.id, details.request.user_id))
     report_drift(client.requests.get_feedbacks(first.id, details.request.user_id))
-    report_drift(client.users.get_events(details.request.user_id))
-    report_drift(client.users.get(details.request.user_id))
     if details.values:
         report_drift(client.requests.get_value_history(first.id, details.values[0].id))
 
@@ -100,6 +97,37 @@ def test_page(client: Cosplay2) -> None:
         pytest.skip("event has no pages")
     details = report_drift(client.pages.get(page.id))
     assert details.id == page.id
+
+
+def test_ratings_chain(client: Cosplay2) -> None:
+    """Walk country -> area -> region -> city using returned selectors."""
+    global_ratings = report_drift(client.users.ratings_global())
+    country_code = next(
+        (c.country_code for c in global_ratings.countries or [] if c.country_code),
+        None,
+    )
+    if country_code is None:
+        pytest.skip("global ratings have no country selectors")
+    country = report_drift(client.users.ratings_country(country_code))
+    regions = country.regions or []
+    area_url = next((a.area_url for a in country.areas or [] if a.area_url), None)
+    if area_url is not None:
+        area = report_drift(client.users.ratings_area(area_url))
+        regions = area.regions or []
+    region_id = next((r.geo_id for r in regions if r.geo_id is not None), None)
+    if region_id is None:
+        pytest.skip("country/area ratings have no region selectors")
+    region = report_drift(client.users.ratings_region(region_id))
+    if region.geo is not None:
+        assert region.geo.id == region_id
+    city_id = next(
+        (c.geo_id for c in region.cities or [] if c.geo_id is not None), None
+    )
+    if city_id is None:
+        pytest.skip("region ratings have no city selectors")
+    city = report_drift(client.users.ratings_city(city_id))
+    if city.geo is not None:
+        assert city.geo.id == city_id
 
 
 def test_wrong_secret_is_rejected(client: Cosplay2) -> None:

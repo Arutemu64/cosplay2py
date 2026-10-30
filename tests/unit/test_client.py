@@ -136,12 +136,14 @@ class TestRequests:
 
     def test_drops_ok_message_envelope(self) -> None:
         def handler(request: httpx2.Request) -> httpx2.Response:
-            return json_response({"valid": False, "domain_ips": [], "message": "ok"})
+            return json_response(
+                {"active_count": 1, "test_tickets": [], "message": "ok"}
+            )
 
         with make_client(handler) as client:
-            check = client.events.check_external_domain("")
+            stats = client.tickets.get_statistic()
 
-        assert check.model_extra == {}
+        assert stats.model_extra == {}
 
     def test_keeps_unknown_fields(self) -> None:
         def handler(request: httpx2.Request) -> httpx2.Response:
@@ -243,10 +245,10 @@ class TestRetries:
             calls += 1
             if calls < 3:
                 return json_response({}, status_code=429)
-            return json_response({"users": []})
+            return json_response([])
 
         with make_client(handler, max_retries=2) as client:
-            assert client.users.get_friends() == []
+            assert client.pages.get_list() == []
         assert calls == 3
 
     def test_gives_up_after_max_retries(self) -> None:
@@ -261,7 +263,7 @@ class TestRetries:
             make_client(handler, max_retries=1) as client,
             pytest.raises(RateLimitError),
         ):
-            client.users.get_friends()
+            client.pages.get_list()
         assert calls == 2
 
     def test_connection_error(self) -> None:
@@ -272,7 +274,7 @@ class TestRetries:
             make_client(handler, max_retries=1) as client,
             pytest.raises(APIConnectionError),
         ):
-            client.users.get_friends()
+            client.pages.get_list()
 
     def test_write_not_retried_on_server_error(self) -> None:
         calls = 0
@@ -528,19 +530,6 @@ async def test_upload_replay_after_connect_failure(api):
     assert b"image-content" in bodies[1]
 
 
-@pytest.mark.anyio
-async def test_notification_read_not_retried(api):
-    calls = []
-
-    def handler(request):
-        calls.append(request)
-        return json_response({}, 503)
-
-    with pytest.raises(InternalServerError):
-        await api(handler, lambda c: c.users.get_feeds(1))
-    assert len(calls) == 1
-
-
 def test_retry_log_omits_exception_text(caplog):
     import logging
 
@@ -558,7 +547,7 @@ def test_foreign_client_headers_and_timeout():
         assert request.headers["X-Custom"] == "custom"
         assert request.headers["X-API-Key"] == "key"
         assert request.extensions["timeout"]["read"] == 7
-        return json_response({"users": []})
+        return json_response([])
 
     with (
         httpx2.Client(
@@ -574,4 +563,4 @@ def test_foreign_client_headers_and_timeout():
             http_client=http,
         ) as client,
     ):
-        client.users.get_friends()
+        client.pages.get_list()

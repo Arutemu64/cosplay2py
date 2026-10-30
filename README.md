@@ -1,6 +1,6 @@
 # cosplay2py
 
-Unofficial typed sync and async client for the [Cosplay2.ru](https://cosplay2.ru) event API, built on
+Unofficial typed sync and async client for the [Cosplay2.ru](https://cosplay2.ru) API, built on
 [httpx2](https://github.com/pydantic/httpx2) and [Pydantic](https://docs.pydantic.dev).
 
 > [!WARNING]
@@ -64,15 +64,16 @@ Any argument left out falls back to the environment: `COSPLAY2_API_KEY`,
 
 | Attribute     | Methods |
 |---------------|---------|
-| `events`      | `get_settings`, `get_state`, `get_topics_state`, `get_topics_statistic`, `get_buttons_state`, `get_staff`, `get_plan`, `save_plan`, `get_blank`, `get_reg_topics`, `get_reg_alphabet`, `check_external_domain`, `search`, `set_deadline` |
-| `topics`      | `get_list`, `get_requests`, `get_all_requests`, `get_requests_for_planner`, `get_form`, `create`, `delete`, `reorder`, `fill_from_template`, `fill_from_topic`, `add_section`, `save_section`, `delete_section`, `add_field`, `delete_field`, `save_field`, `save_topic`, `reorder_section` |
-| `requests`    | `get`, `get_comments`, `get_org_comments`, `get_user`, `generate_card_title`, `generate_card_announcement`, `generate_card_diplom`, `get_value_history`, `add_comment`, `delete_comment`, `save_field`, `upload_image`, `delete_image`, `save_data`, `set_status`, `create`, `create_section`, `change_topic`, `add_org_comment`, `delete_org_comment`, `get_feedbacks`, `add_feedback`, `delete_feedback` |
-| `users`       | `get`, `save_field`, `add_friend`, `accept_friend_invite`, `decline_friend_invite`, `cancel_friend_invite`, `remove_friend`, `get_events`, `get_feeds`, `mark_feeds_read`, `get_friends`, `search` |
-| `design`      | `get`, `get_images`, `save`, `upload_image`, `delete_image` |
+| `events`      | `get_settings`, `save_setting`, `get_state`, `get_topics_state`, `get_topics_statistic`, `get_staff`, `add_org`, `delete_org`, `change_main_org`, `add_curator`, `delete_curator`, `get_winners`, `get_plan`, `save_plan`, `get_blank`, `get_reg_topics`, `get_reg_alphabet`, `search`, `set_deadline` |
+| `topics`      | `get_list`, `get_requests`, `get_all_requests`, `get_requests_for_planner`, `get_form`, `get_with_groups`, `add_child_topic`, `delete_child_topic`, `create`, `delete`, `reorder`, `fill_from_template`, `fill_from_topic`, `add_section`, `save_section`, `delete_section`, `add_field`, `delete_field`, `save_field`, `save_topic`, `reorder_section`, `reorder_field`, `generate_card_titles`, `reorder_requests` |
+| `requests`    | `get`, `get_comments`, `get_org_comments`, `get_user`, `generate_card_title`, `generate_card_announcement`, `generate_card_diplom`, `generate_voting_number`, `search`, `get_value_history`, `add_comment`, `delete_comment`, `save_field`, `upload_image`, `delete_image`, `upload_file`, `delete_file`, `save_data`, `set_status`, `create`, `create_section`, `delete_section`, `change_topic`, `add_org_comment`, `delete_org_comment`, `get_feedbacks`, `add_feedback`, `delete_feedback` |
+| `users`       | `search` |
+| `design`      | `get`, `get_images`, `save`, `upload_image`, `delete_image`, `delete_panel_logo`, `delete_header_logo`, `delete_site_background` |
 | `pages`       | `get_list`, `get`, `create`, `save_field`, `save_fields`, `delete`, `reorder` |
-| `media`       | `get_data`, `add_album` |
-| `etickets`    | `get_list`, `get_types`, `get_paymethods`, `get_vat_dictionary` |
-| `tickets`     | `get_statistic`, `get_voting_statistics` |
+| `media`       | `get_data`, `add_album`, `save_album_field`, `delete_album` |
+| `cards`       | `get_topics_and_cards`, `get_card`, `get_topics_and_requests`, `get_request` |
+| `etickets`    | `get_list`, `get_types`, `add_type`, `delete_type`, `reorder_type`, `save_type_field`, `save_field`, `delete`, `create`, `get`, `get_status`, `save_personal_data` |
+| `tickets`     | `get_statistic`, `get_voting_statistics`, `create`, `clear_votes`, `add_prize`, `delete_prize`, `save_prize_field`, `save_prize_handed`, `get_ticket`, `check_for_voting`, `get_voting_data`, `get_cards`, `select_winner` |
 
 ### Data conventions
 
@@ -82,11 +83,11 @@ Any argument left out falls back to the environment: `COSPLAY2_API_KEY`,
   naive `datetime`s, as the site shows them.
 - `0`/`1` flags become `bool`. JSON packed into strings (`Event.design`, the plan) is parsed.
 - Closed domain sets (`RequestStatus`, `TopicFieldType`, `PageType`, `PlanNodeType`,
-  `EventRole`, `EventStatus`, `EventTime`, `ButtonStateCode`, `TopicCategory`,
+  `EventRole`, `EventStatus`, `EventTime`, `TopicCategory`,
   `PublicRequests`, `TopicTemplate`, `SectionTemplate`, `FieldTemplate`, `FeedbackMark`,
-  `Sex`, `FriendStatus`, `UserEventRoleType`, `BlankId`, `Deadline`) are validated
-  strictly as `StrEnum` / `IntEnum` members (empty strings on optional fields normalize
-  to `None`).
+  `CardField`, `TicketKind`, `TicketCreateMode`, `VotingType`, `BlankId`, `Deadline`) are
+  validated strictly as `StrEnum` / `IntEnum` members (empty strings on optional fields
+  normalize to `None`).
 - Unknown fields are kept rather than rejected. Read them via `model.model_extra`.
 
 Talking to the API without this library? [docs/api-notes.md](docs/api-notes.md)
@@ -111,9 +112,9 @@ Cosplay2Error
 
 Repeatable reads retry transport failures and 429/502/503/504 responses, with
 exponential backoff and jitter (2 retries by default, configurable with
-`max_retries`). Writes and `users.get_feeds()` retry only connection failures
-(`ConnectError`), never HTTP responses or read/write timeouts. An ambiguous failure
-may mean a write succeeded; check the service before repeating it yourself.
+`max_retries`). Writes retry only connection failures (`ConnectError`), never
+HTTP responses or read/write timeouts. An ambiguous failure may mean a write
+succeeded; check the service before repeating it yourself.
 
 `Retry-After` supports seconds and HTTP dates. If the server asks for more than
 30 seconds, the error is returned immediately instead of retrying early.
@@ -159,3 +160,10 @@ uv run pytest -m live -rw
 
 `-rw` lists warnings: fields the API returns that the models don't declare yet show up
 as `UnknownFieldsWarning`, an early sign of API drift.
+
+Portal reads work with the configured event base URL (verified with event API
+credentials); `https://cosplay2.ru` returned HTTP 403 with those credentials. Methods: `events.filter_list()`,
+`events.get_types()`, `events.create_festival()`, `events.create_festival_logo()`,
+`users.ratings_global()` and the country/area/region/city variants,
+`users.get_region_geo_id()`, and `geo.code_city()`. Unobserved response shapes
+are returned as JSON data.

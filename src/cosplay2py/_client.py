@@ -14,18 +14,22 @@ from cosplay2py._base_client import (
 )
 from cosplay2py._exceptions import APIConnectionError, APITimeoutError
 from cosplay2py.resources import (
+    AsyncCards,
     AsyncDesign,
     AsyncETickets,
     AsyncEvents,
+    AsyncGeo,
     AsyncMedia,
     AsyncPages,
     AsyncRequests,
     AsyncTickets,
     AsyncTopics,
     AsyncUsers,
+    Cards,
     Design,
     ETickets,
     Events,
+    Geo,
     Media,
     Pages,
     Requests,
@@ -60,10 +64,12 @@ class Cosplay2(BaseClient[httpx2.Client]):
     events: Events
     topics: Topics
     requests: Requests
+    geo: Geo
     users: Users
     design: Design
     pages: Pages
     media: Media
+    cards: Cards
     etickets: ETickets
     tickets: Tickets
 
@@ -93,10 +99,12 @@ class Cosplay2(BaseClient[httpx2.Client]):
         self.events = Events(self)
         self.topics = Topics(self)
         self.requests = Requests(self)
+        self.geo = Geo(self)
         self.users = Users(self)
         self.design = Design(self)
         self.pages = Pages(self)
         self.media = Media(self)
+        self.cards = Cards(self)
         self.etickets = ETickets(self)
         self.tickets = Tickets(self)
 
@@ -151,10 +159,12 @@ class AsyncCosplay2(BaseClient[httpx2.AsyncClient]):
     events: AsyncEvents
     topics: AsyncTopics
     requests: AsyncRequests
+    geo: AsyncGeo
     users: AsyncUsers
     design: AsyncDesign
     pages: AsyncPages
     media: AsyncMedia
+    cards: AsyncCards
     etickets: AsyncETickets
     tickets: AsyncTickets
 
@@ -184,10 +194,12 @@ class AsyncCosplay2(BaseClient[httpx2.AsyncClient]):
         self.events = AsyncEvents(self)
         self.topics = AsyncTopics(self)
         self.requests = AsyncRequests(self)
+        self.geo = AsyncGeo(self)
         self.users = AsyncUsers(self)
         self.design = AsyncDesign(self)
         self.pages = AsyncPages(self)
         self.media = AsyncMedia(self)
+        self.cards = AsyncCards(self)
         self.etickets = AsyncETickets(self)
         self.tickets = AsyncTickets(self)
 

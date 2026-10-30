@@ -1,5 +1,5 @@
 from decimal import Decimal
-from enum import IntEnum, StrEnum
+from enum import StrEnum
 from typing import Annotated
 
 from pydantic import BeforeValidator, Field
@@ -102,6 +102,14 @@ class EventStatus(StrEnum):
     PUBLIC = "public"
 
 
+class FestivalCreateMethod(StrEnum):
+    """Initial site setup mode when submitting a new festival request."""
+
+    LINKS = "links"
+    PAGES = "pages"
+    COPY = "copy"
+
+
 class Event(Cosplay2Model):
     """Event (festival) settings."""
 
@@ -200,31 +208,6 @@ class TopicStatistic(Cosplay2Model):
     count_disapproved: int
 
 
-class ButtonStateCode(IntEnum):
-    """Availability state of an event menu section."""
-
-    HIDDEN = 0
-    UPCOMING = 1
-    OPEN = 2
-
-
-class ButtonState(Cosplay2Model):
-    state: ButtonStateCode
-    timer: int | None = None
-    """Seconds until the section opens (``UPCOMING``) or closes (``OPEN``)."""
-
-
-class ButtonsState(Cosplay2Model):
-    """Availability of the main event sections (registration, cards, voting, ...)."""
-
-    new_request: ButtonState
-    cards: ButtonState
-    voting: ButtonState
-    etickets: ButtonState
-    media: ButtonState
-    requestlist: ButtonState
-
-
 class Curator(UserBrief):
     topic_id: int
     card_code: str
@@ -242,13 +225,6 @@ class EventBrief(Cosplay2Model):
 
     id: int
     title: str
-
-
-class DomainCheck(Cosplay2Model):
-    valid: bool
-    expected_ip: str | None = None
-    expected_ips: list[str] = Field(default_factory=list)
-    domain_ips: list[str] = Field(default_factory=list)
 
 
 class BlankId(StrEnum):

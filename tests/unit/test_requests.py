@@ -480,6 +480,21 @@ def test_get_comments() -> None:
             "requests/del_orgcomment",
             {"request_id": "42", "comment_id": 3},
         ),
+        (
+            lambda c: c.requests.delete_section(42, 3),
+            "requests/delete_reqsection",
+            {"request_id": 42, "request_section_id": 3},
+        ),
+        (
+            lambda c: c.requests.delete_file(42, 3, 5, 9),
+            "requests/delete_file",
+            {
+                "request_id": 42,
+                "request_section_id": "3",
+                "topic_field_id": 5,
+                "value_id": "9",
+            },
+        ),
     ],
 )
 async def test_new_writes(
@@ -492,6 +507,57 @@ async def test_new_writes(
         return json_response({"message": "ok"})
 
     assert await api(handler, call) is None
+
+
+@pytest.mark.parametrize(("value_id", "sent"), [(None, b"0"), (9, b"9")])
+async def test_upload_file(api: ApiCall, value_id: int | None, sent: bytes) -> None:
+    seen: list[httpx2.Request] = []
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        request.read()
+        seen.append(request)
+        return json_response(
+            {"message": "ok", "id": "9", "value": {"filename": "track.mp3"}}
+        )
+
+    uploaded = await api(
+        handler,
+        lambda c: c.requests.upload_file(
+            42, 3, 5, b"ID3", "track.mp3", value_id=value_id
+        ),
+    )
+
+    (request,) = seen
+    assert request.url.path == "/api/requests/upload_file"
+    assert request.headers["content-type"].startswith("multipart/form-data")
+    body = request.content
+    for name, field in [
+        ("request_id", b"42"),
+        ("request_section_id", b"3"),
+        ("topic_field_id", b"5"),
+        ("value_id", sent),
+    ]:
+        assert f'name="{name}"\r\n\r\n'.encode() + field + b"\r\n" in body
+    assert b'name="uploaded_file"; filename="track.mp3"' in body
+    assert uploaded == {"id": "9", "value": {"filename": "track.mp3"}}
+
+
+async def test_generate_voting_number_and_search(api: ApiCall) -> None:
+    def num_handler(request: httpx2.Request) -> httpx2.Response:
+        assert request.url.path == "/api/requests/generate_voting_num"
+        assert json.loads(request.content) == {"request_id": 42}
+        return json_response({"message": "ok", "voting_number": 77})
+
+    assert await api(num_handler, lambda c: c.requests.generate_voting_number(42)) == 77
+
+    def search_handler(request: httpx2.Request) -> httpx2.Response:
+        assert request.url.path == "/api/requests/search"
+        assert json.loads(request.content) == {"search_text": "neko"}
+        return json_response({"requests": [{"id": 42, "voting_title": "Neko"}]})
+
+    assert await api(search_handler, lambda c: c.requests.search("neko")) == [
+        {"id": 42, "voting_title": "Neko"}
+    ]
 
 
 @pytest.mark.anyio

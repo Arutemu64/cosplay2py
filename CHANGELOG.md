@@ -9,17 +9,52 @@ means a breaking change.
 
 ### Added
 
-- `users.accept_friend_invite()` (`POST /api/users/friend_invite_accept`),
-  `users.decline_friend_invite()` (`POST /api/users/friend_invite_decline`), and
-  `users.mark_feeds_read()` (`POST /api/users/mark_feeds_readed`).
-- `UserFeed` model exported from `cosplay2py.models`.
-- Optional `t_id` and `url_code` fields on `UserEventRole`, and `filter=None` support on
-  `users.get_events()`.
+- Tag-triggered PyPI publishing through GitHub Actions trusted publishing; see
+  [publishing setup](docs/publishing.md).
+
+- Global portal event creation, listing, types, geographic lookup and ratings endpoints.
+
+- `cards` resource (`Cards` / `AsyncCards`): `get_topics_and_cards()`, `get_card()`,
+  `get_topics_and_requests()`, and `get_request()`.
+- Event settings, staff, and winners endpoints on `events`: `save_setting()`,
+  `add_org()`, `delete_org()`, `change_main_org()`, `add_curator()`,
+  `delete_curator()`, and `get_winners()`.
+- Topic form, group, and request management endpoints on `topics`: `reorder_field()`,
+  `generate_card_titles()` (with `CardField`), `reorder_requests()`,
+  `get_with_groups()`, `add_child_topic()`, and `delete_child_topic()`.
+- Request section, file, voting number, and search endpoints on `requests`:
+  `delete_section()`, `upload_file()`, `delete_file()`, `generate_voting_number()`,
+  and `search()`.
+- Photo album management on `media`: `save_album_field()` and `delete_album()`.
+- Logo and background removal on `design`: `delete_panel_logo()`,
+  `delete_header_logo()`, and `delete_site_background()`.
+- Electronic ticket management and buyer endpoints on `etickets`: `get_types(i_can_buy=)`,
+  `add_type()`, `delete_type()`, `reorder_type()`, `save_type_field()`, `save_field()`,
+  `delete()`, `create()`, `get()`, `get_status()`, and `save_personal_data()`.
+- Audience voting and prize endpoints on `tickets`: `create()` (with `TicketKind` and
+  `TicketCreateMode`), `clear_votes()`, `add_prize()`, `delete_prize()`,
+  `save_prize_field()`, `save_prize_handed()`, `get_ticket()`, `check_for_voting()`,
+  `get_voting_data()`, `get_cards()`, and `select_winner()` (with `VotingType`).
 
 ### Changed
 
-- **Breaking:** `users.get_feeds()` now returns `list[UserFeed]` instead of
-  `list[dict[str, Any]]`.
+- **Breaking:** All five `users.ratings_*()` methods now return typed response
+  models instead of dictionaries. `geo.code_city()` returns `CityGeodata`.
+  Rating timestamps normalize to UTC datetimes.
+- Expand package keywords and clarify the package description.
+
+### Removed
+
+- **Breaking:** Removed frontend UI helper endpoints `events.get_buttons_state()`,
+  `events.check_external_domain()`, and `etickets.get_vat_dictionary()`, along with
+  models `ButtonsState`, `ButtonState`, `ButtonStateCode`, and `DomainCheck`.
+- **Breaking:** Removed personal account, profile, friend, and notification endpoints
+  from `users` (`get`, `get_events`, `save_field`, `add_friend`, `cancel_friend_invite`,
+  `remove_friend`, `get_friends`, and `get_feeds`), along with models `UserDetails`,
+  `UserProfile`, `Friendship`, `FriendStatus`, `Sex`, `UserEvents`, `UserEvent`,
+  `UserEventRole`, `UserEventRoleType`, and `Friend`.
+- **Breaking:** Removed external payment configuration endpoint
+  `etickets.get_paymethods()` and model `PayMethods`.
 
 ## [0.2.0] - 2026-10-29
 
@@ -51,6 +86,13 @@ means a breaking change.
   enums (`events.get_blank`, `events.set_deadline`, `topics.fill_from_template`,
   `topics.add_section`, `topics.add_field`, `requests.set_status`,
   `requests.add_feedback`, `pages.create`).
+
+### Changed
+
+- **Breaking:** All five `users.ratings_*()` methods now return typed response
+  models instead of dictionaries. `geo.code_city()` returns `CityGeodata`.
+  Rating timestamps normalize to UTC datetimes.
+- Expand package keywords and clarify the package description.
 
 ### Removed
 

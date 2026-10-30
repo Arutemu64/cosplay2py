@@ -2,12 +2,14 @@ from typing import Any
 
 from cosplay2py._base_client import Endpoint
 from cosplay2py.models import (
+    CardField,
     EventRequest,
     FieldTemplate,
     PlannerData,
     SectionTemplate,
     Topic,
     TopicForm,
+    TopicRequest,
     TopicRequests,
     TopicTemplate,
 )
@@ -48,6 +50,45 @@ def _get_form(url_code: str) -> Endpoint[TopicForm]:
         TopicForm,
         json={"topic_url_code": url_code},
         idempotent=True,
+    )
+
+
+def _get_with_groups(url_code: str) -> Endpoint[dict[str, Any]]:
+    return Endpoint(
+        "POST",
+        "/api/topics/get_with_groups",
+        dict[str, Any],
+        json={"topic_url_code": url_code},
+        idempotent=True,
+    )
+
+
+def _child_topic(
+    action: str, url_code: str, child_topic_id: int
+) -> Endpoint[list[dict[str, Any]]]:
+    return Endpoint(
+        "POST",
+        f"/api/topics/{action}_child_topic",
+        list[dict[str, Any]],
+        key="child_topics",
+        json={"topic_url_code": url_code, "child_topic_id": child_topic_id},
+        idempotent=False,
+    )
+
+
+def _generate_card_titles(
+    topic_id: int, field_num: CardField
+) -> Endpoint[list[TopicRequest]]:
+    if isinstance(field_num, bool):
+        raise TypeError(f"{field_num!r} is not a valid CardField")
+    field_num = CardField(field_num)
+    return Endpoint(
+        "POST",
+        "/api/topics/generate_cards_title",
+        list[TopicRequest],
+        key="requests",
+        json={"topic_id": topic_id, "field_num": int(field_num)},
+        idempotent=False,
     )
 
 
@@ -244,6 +285,57 @@ class Topics(SyncResource):
             )
         )
 
+    def reorder_field(
+        self,
+        topic_id: int,
+        field_id: int,
+        new_index: int,
+        *,
+        source_section_id: int,
+        target_section_id: int,
+    ) -> None:
+        """Move a form field to a new position or section."""
+        self._request(
+            _write(
+                "field_reorder",
+                {
+                    "topic_id": topic_id,
+                    "source_section_id": source_section_id,
+                    "target_section_id": target_section_id,
+                    "field_id": field_id,
+                    "new_index": new_index,
+                },
+            )
+        )
+
+    def generate_card_titles(
+        self, topic_id: int, field_num: CardField = CardField.VOTING_TITLE
+    ) -> list[TopicRequest]:
+        """Rebuild card titles, announcements or diploma titles for all requests in a
+        topic and return the updated topic requests.
+        """
+        return self._request(_generate_card_titles(topic_id, field_num))
+
+    def reorder_requests(self, topic_id: int) -> None:
+        """Renumber requests in a topic according to the planner schedule."""
+        self._request(_write("reorder_requests", {"topic_id": topic_id}))
+
+    def get_with_groups(self, url_code: str) -> dict[str, Any]:
+        """A group topic with all event topics and its linked child topics."""
+        return self._request(_get_with_groups(url_code))
+
+    def add_child_topic(
+        self, url_code: str, child_topic_id: int
+    ) -> list[dict[str, Any]]:
+        """Add ``child_topic_id`` to the group topic ``url_code``."""
+        return self._request(_child_topic("add", url_code, child_topic_id))
+
+    def delete_child_topic(
+        self, url_code: str, child_topic_id: int
+    ) -> list[dict[str, Any]]:
+        """Remove ``child_topic_id`` from the group topic ``url_code``."""
+        return self._request(_child_topic("del", url_code, child_topic_id))
+
 
 class AsyncTopics(AsyncResource):
     """Topics (nominations) of the event."""
@@ -434,3 +526,54 @@ class AsyncTopics(AsyncResource):
                 },
             )
         )
+
+    async def reorder_field(
+        self,
+        topic_id: int,
+        field_id: int,
+        new_index: int,
+        *,
+        source_section_id: int,
+        target_section_id: int,
+    ) -> None:
+        """Move a form field to a new position or section."""
+        await self._request(
+            _write(
+                "field_reorder",
+                {
+                    "topic_id": topic_id,
+                    "source_section_id": source_section_id,
+                    "target_section_id": target_section_id,
+                    "field_id": field_id,
+                    "new_index": new_index,
+                },
+            )
+        )
+
+    async def generate_card_titles(
+        self, topic_id: int, field_num: CardField = CardField.VOTING_TITLE
+    ) -> list[TopicRequest]:
+        """Rebuild card titles, announcements or diploma titles for all requests in a
+        topic and return the updated topic requests.
+        """
+        return await self._request(_generate_card_titles(topic_id, field_num))
+
+    async def reorder_requests(self, topic_id: int) -> None:
+        """Renumber requests in a topic according to the planner schedule."""
+        await self._request(_write("reorder_requests", {"topic_id": topic_id}))
+
+    async def get_with_groups(self, url_code: str) -> dict[str, Any]:
+        """A group topic with all event topics and its linked child topics."""
+        return await self._request(_get_with_groups(url_code))
+
+    async def add_child_topic(
+        self, url_code: str, child_topic_id: int
+    ) -> list[dict[str, Any]]:
+        """Add ``child_topic_id`` to the group topic ``url_code``."""
+        return await self._request(_child_topic("add", url_code, child_topic_id))
+
+    async def delete_child_topic(
+        self, url_code: str, child_topic_id: int
+    ) -> list[dict[str, Any]]:
+        """Remove ``child_topic_id`` from the group topic ``url_code``."""
+        return await self._request(_child_topic("del", url_code, child_topic_id))
