@@ -1,6 +1,6 @@
 [project]
 name = "cosplay2py"
-version = "0.2.0"
+version = "0.3.0"
 description = "Unofficial typed sync and async client for the Cosplay2.ru API"
 readme = "README.md"
 authors = [

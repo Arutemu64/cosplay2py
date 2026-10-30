@@ -7,6 +7,8 @@ means a breaking change.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-30
+
 ### Added
 
 - Tag-triggered PyPI publishing through GitHub Actions trusted publishing; see
