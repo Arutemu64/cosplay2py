@@ -145,9 +145,10 @@ consumers install from a tag. The version lives only in `pyproject.toml`
   the exception raised.
 - **Patch** = everything backward compatible: new endpoints, new optional fields, making
   a field optional, drift and bug fixes.
-- Record every user-visible change under `## [Unreleased]` in `CHANGELOG.md`, in the
+- Record user-visible library changes under `## [Unreleased]` in `CHANGELOG.md`, in the
   matching section (`Added`, `Changed`, `Fixed`, `Removed`); flag breaking ones with
   **Breaking:**.
+- Omit documentation-only, tooling, CI, and release-process changes from the changelog.
 - Releasing (only when the user asks): `uv version --bump patch|minor`, rename
   `[Unreleased]` to `[X.Y.Z] - YYYY-MM-DD` and open a new empty `[Unreleased]`, commit
   `chore(release): vX.Y.Z`, then `git tag vX.Y.Z`. The tag must match `pyproject.toml`;

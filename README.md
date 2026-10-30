@@ -9,10 +9,22 @@ Unofficial typed sync and async client for the [Cosplay2.ru](https://cosplay2.ru
 
 ## Installing
 
-The package is not on PyPI. Install it from a release tag:
+Requires Python 3.12 or newer. Install from PyPI with uv:
 
 ```shell
-uv add "cosplay2py @ git+https://github.com/Arutemu64/cosplay2py" --tag v0.2.0
+uv add cosplay2py
+```
+
+Or with pip:
+
+```shell
+pip install cosplay2py
+```
+
+To install a specific release directly from GitHub:
+
+```shell
+uv add "cosplay2py @ git+https://github.com/Arutemu64/cosplay2py" --tag v0.3.0
 ```
 
 Versions follow SemVer. On `0.x`, a minor bump (`0.1` → `0.2`) may break things and a
