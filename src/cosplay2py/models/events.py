@@ -7,10 +7,12 @@ from pydantic import BeforeValidator, Field
 from cosplay2py._types import JsonEncoded, LocalDateTime, UTCDateTime
 from cosplay2py.models._base import Cosplay2Model
 from cosplay2py.models.common import EventTime, RequestStatus, UserBrief
-from cosplay2py.models.topics import PlannerMember
+from cosplay2py.models.topics import PlannerMember, Topic
 
 
 class EventDesign(Cosplay2Model):
+    """Colors, layout settings and custom CSS for the event site."""
+
     panel_background_color: str | None = None
     panel_text_color: str | None = None
     panel_small_text_color: str | None = None
@@ -42,6 +44,8 @@ class PlanIntersection(Cosplay2Model):
 
 
 class PlanMember(PlannerMember):
+    """A scheduled participant with overlapping performances."""
+
     uid: str | None = None
     distance: int | None = None
     intersections: list[PlanIntersection] = Field(default_factory=list)
@@ -128,12 +132,16 @@ class Event(Cosplay2Model):
     region: str | None = None
     country: str | None = None
     start_time: LocalDateTime | None = None
+    """Event start as local wall time, without timezone information."""
     end_time: LocalDateTime | None = None
+    """Event end as local wall time, without timezone information."""
     timezone: str
     status: EventStatus
     event_status: EventTime | None = None
     design: Annotated[EventDesign | None, JsonEncoded] = None
+    """Site design settings decoded from the API's JSON string."""
     plan: Annotated[list[PlanNode] | None, JsonEncoded] = None
+    """Schedule tree decoded from the API's JSON string."""
     ad: int | None = None
     sms_price: Decimal | None = None
     prize_step: int | None = None
@@ -209,12 +217,16 @@ class TopicStatistic(Cosplay2Model):
 
 
 class Curator(UserBrief):
+    """A curator and the topic they oversee."""
+
     topic_id: int
     card_code: str
     topic_title: str
 
 
 class EventStaff(Cosplay2Model):
+    """Event organizers, topic curators and the main organizer."""
+
     orgs: list[UserBrief]
     curators: list[Curator]
     mainorg: UserBrief
@@ -251,6 +263,8 @@ class Blank(Cosplay2Model):
 
 
 class RegistrationRequest(Cosplay2Model):
+    """A participant's request as listed in a registration report."""
+
     request_id: int
     number: int
     """The request's number within its topic."""
@@ -269,6 +283,8 @@ class RegistrationParticipant(Cosplay2Model):
 
 
 class AlphabetParticipant(RegistrationParticipant):
+    """A registration participant with onstage and offstage request counts."""
+
     onscene_count: int
     offscene_count: int
 
@@ -294,3 +310,24 @@ class AlphabetRegistration(Cosplay2Model):
 
     title: str
     data: list[AlphabetParticipant]
+
+
+class EventWinner(Cosplay2Model):
+    """A winning request in the event's published results."""
+
+    id: int
+    """Identifier of the winning request."""
+    topic_id: int
+    number: int
+    voting_number: int
+    voting_title: str
+    win: int
+    """Award placement, as returned by the API."""
+    win_title: str | None = None
+
+
+class EventWinners(Cosplay2Model):
+    """Topics and winning requests of an event."""
+
+    topics: list[Topic]
+    winners: list[EventWinner]

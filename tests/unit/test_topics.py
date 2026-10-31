@@ -13,6 +13,8 @@ from cosplay2py.models import (
     RequestStatus,
     SectionTemplate,
     TopicCategory,
+    TopicGroup,
+    TopicGroupLink,
     TopicTemplate,
 )
 from unit.conftest import TOPIC, ApiCall, json_response, make_client
@@ -333,11 +335,19 @@ async def test_group_topics(api: ApiCall) -> None:
         assert request.url.path == "/api/topics/get_with_groups"
         assert json.loads(request.content) == {"topic_url_code": "grp"}
         return json_response(
-            {"topic": TOPIC, "topics": [TOPIC], "child_topics": [{"id": 2}]}
+            {
+                "topic": TOPIC,
+                "topics": [TOPIC],
+                "child_topics": [{"group_topic_id": 7, "child_topic_id": 2}],
+            }
         )
 
     group = await api(get_handler, lambda c: c.topics.get_with_groups("grp"))
-    assert group["child_topics"] == [{"id": 2}]
+    assert isinstance(group, TopicGroup)
+    assert group.topic.id == TOPIC["id"]
+    assert group.topics[0].id == TOPIC["id"]
+    assert group.child_topics == [TopicGroupLink(group_topic_id=7, child_topic_id=2)]
+    assert group.model_extra == {}
 
     for action, method in [
         ("add", lambda c: c.topics.add_child_topic("grp", 2)),
@@ -353,6 +363,41 @@ async def test_group_topics(api: ApiCall) -> None:
                 "topic_url_code": "grp",
                 "child_topic_id": 2,
             }
-            return json_response({"message": "ok", "child_topics": [{"id": 2}]})
+            return json_response(
+                {
+                    "message": "ok",
+                    "child_topics": [{"group_topic_id": 7, "child_topic_id": 2}],
+                }
+            )
 
-        assert await api(child_handler, method) == [{"id": 2}]
+        assert await api(child_handler, method) == [
+            TopicGroupLink(group_topic_id=7, child_topic_id=2)
+        ]
+
+
+@pytest.mark.anyio
+async def test_empty_group_links(api: ApiCall) -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        if request.url.path == "/api/topics/get_with_groups":
+            return json_response(
+                {"topic": TOPIC, "topics": [TOPIC], "child_topics": []}
+            )
+        return json_response({"child_topics": []})
+
+    group = await api(handler, lambda c: c.topics.get_with_groups("grp"))
+    assert group.child_topics == []
+    assert await api(handler, lambda c: c.topics.delete_child_topic("grp", 2)) == []
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("group_text", [None, "Solo, Group"])
+async def test_get_list_group_display_data(
+    api: ApiCall, group_text: str | None
+) -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        assert request.method == "POST"
+        assert json.loads(request.content) == {"with_group_text": True}
+        return json_response([{**TOPIC, "child_topics": group_text}])
+
+    (topic,) = await api(handler, lambda c: c.topics.get_list(with_group_text=True))
+    assert topic.child_topics == group_text

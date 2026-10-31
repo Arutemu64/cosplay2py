@@ -7,7 +7,16 @@ from pydantic import Field
 
 from cosplay2py._types import UTCDateTime
 from cosplay2py.models._base import Cosplay2Model
-from cosplay2py.models.common import EventRole
+from cosplay2py.models.common import EventRole, RequestStatus
+from cosplay2py.models.requests import (
+    ImageValue,
+    Request,
+    RequestSection,
+    RequestValue,
+    TopicField,
+    TopicSection,
+)
+from cosplay2py.models.topics import PublicRequests, Topic
 
 
 class PageType(StrEnum):
@@ -76,6 +85,8 @@ class MediaPhoto(Cosplay2Model):
 
 
 class MediaData(Cosplay2Model):
+    """Linked photo albums and photos returned by the event media resource."""
+
     albums: list[MediaAlbum] = Field(default_factory=list)
     photos: list[MediaPhoto] = Field(default_factory=list)
 
@@ -102,11 +113,15 @@ class VotingType(StrEnum):
 
 
 class TicketStatistic(Cosplay2Model):
+    """Active voting ticket count and test ticket data."""
+
     active_count: int
     test_tickets: list[Any] = Field(default_factory=list)
 
 
 class VotingStatistics(Cosplay2Model):
+    """Voting totals, ticket activity and prize draw statistics."""
+
     votes_accepted: int
     votes_by_source: list[Any] = Field(default_factory=list)
     active_tickets: int
@@ -116,3 +131,94 @@ class VotingStatistics(Cosplay2Model):
     prize_step: int | None = None
     prize_step_recommend: int | None = None
     votes_to_next_prize: int | None = None
+
+
+class CardTopic(Cosplay2Model):
+    """A topic in the participant showcase."""
+
+    id: int
+    url_code: str
+    card_code: str
+    title: str
+
+
+class CardRequest(Cosplay2Model):
+    """A request in the participant showcase."""
+
+    id: int
+    topic_id: int
+    voting_number: int | None = None
+    voting_title: str | None = None
+    win: int | None = None
+    user_id: int | None = None
+    image: ImageValue | None = None
+
+
+class TopicsAndCards(Cosplay2Model):
+    """Topics and participant cards shown on the event site."""
+
+    topics: list[CardTopic]
+    requests: list[CardRequest]
+
+
+class PublicRequest(Cosplay2Model):
+    """A submitted request in the public request list."""
+
+    id: int
+    topic_id: int
+    user_id: int
+    number: int
+    status: RequestStatus
+    public_requests: PublicRequests
+    """The topic's public request visibility setting."""
+    voting_number: int | None = None
+    voting_title: str | None = None
+
+
+class TopicsAndRequests(Cosplay2Model):
+    """Topics and submitted requests shown on the public request list."""
+
+    topics: list[CardTopic]
+    requests: list[PublicRequest]
+
+
+class CardBadge(Cosplay2Model):
+    """A participant badge attached to a request section."""
+
+    request_section_id: int
+    card: str
+    another_requests: str | None = None
+    """Display text for the participant's other requests."""
+
+
+class CardUser(Cosplay2Model):
+    """A user embedded in a participant card, identified by ``id``."""
+
+    id: int
+    title: str | None = None
+    image_update_time: UTCDateTime | None = None
+
+
+class CardDetails(Cosplay2Model):
+    """A participant card with its form, values, badges and users."""
+
+    request: Request
+    topic: Topic
+    sections: list[TopicSection]
+    fields: list[TopicField]
+    request_sections: list[RequestSection] = Field(alias="reqsections")
+    values: list[RequestValue] = Field(alias="reqvalues")
+    badges: list[CardBadge]
+    users: list[CardUser]
+
+
+class PublicRequestDetails(Cosplay2Model):
+    """A public request with its form, values and users."""
+
+    request: Request
+    topic: Topic
+    sections: list[TopicSection]
+    fields: list[TopicField]
+    request_sections: list[RequestSection] = Field(alias="reqsections")
+    values: list[RequestValue] = Field(alias="reqvalues")
+    users: list[CardUser]

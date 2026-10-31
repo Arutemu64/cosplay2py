@@ -9,8 +9,11 @@ import pytest
 from cosplay2py.models import (
     BlankId,
     Deadline,
+    EventWinner,
+    EventWinners,
     PlanNodeType,
     RequestStatus,
+    Topic,
 )
 from unit.conftest import ApiCall, json_response, make_client
 
@@ -293,10 +296,49 @@ async def test_get_winners(api: ApiCall) -> None:
     def handler(request: httpx2.Request) -> httpx2.Response:
         assert request.method == "GET"
         assert request.url.path == "/api/events/winners"
-        return json_response({"topics": [{"id": 1}], "winners": [{"id": 10}]})
+        return json_response(
+            {
+                "topics": [
+                    {
+                        "id": 1,
+                        "event_id": 2,
+                        "url_code": "solo",
+                        "voting_group": 0,
+                        "voting_public": 0,
+                        "voting_jury": 1,
+                        "print_badges": 1,
+                        "card_enabled": 1,
+                        "default_duration": 2.5,
+                        "public_requests": "NO",
+                        "card_code": "S",
+                        "title": "Solo",
+                        "order": 0,
+                    }
+                ],
+                "winners": [
+                    {
+                        "id": 10,
+                        "topic_id": 1,
+                        "number": 3,
+                        "voting_number": 103,
+                        "voting_title": "Example entry",
+                        "win": 1,
+                        "win_title": None,
+                    }
+                ],
+            }
+        )
 
     result = await api(handler, lambda c: c.events.get_winners())
-    assert result == {"topics": [{"id": 1}], "winners": [{"id": 10}]}
+    assert isinstance(result, EventWinners)
+    assert isinstance(result.topics[0], Topic)
+    assert result.topics[0].title == "Solo"
+    assert isinstance(result.winners[0], EventWinner)
+    assert result.winners[0].id == 10
+    assert result.winners[0].topic_id == result.topics[0].id
+    assert result.winners[0].voting_number == 103
+    assert result.winners[0].win == 1
+    assert result.winners[0].win_title is None
 
 
 @pytest.mark.anyio

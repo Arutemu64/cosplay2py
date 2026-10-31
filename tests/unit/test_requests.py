@@ -10,6 +10,7 @@ from cosplay2py import APIResponseValidationError
 from cosplay2py.models import (
     EventRole,
     FeedbackMark,
+    RequestSearchResult,
     RequestStatus,
     TopicFieldType,
 )
@@ -517,7 +518,11 @@ async def test_upload_file(api: ApiCall, value_id: int | None, sent: bytes) -> N
         request.read()
         seen.append(request)
         return json_response(
-            {"message": "ok", "id": "9", "value": {"filename": "track.mp3"}}
+            {
+                "message": "ok",
+                "id": "9",
+                "value": {"filename": "track.mp3", "filesize": 3, "fileext": "mp3"},
+            }
         )
 
     uploaded = await api(
@@ -539,7 +544,12 @@ async def test_upload_file(api: ApiCall, value_id: int | None, sent: bytes) -> N
     ]:
         assert f'name="{name}"\r\n\r\n'.encode() + field + b"\r\n" in body
     assert b'name="uploaded_file"; filename="track.mp3"' in body
-    assert uploaded == {"id": "9", "value": {"filename": "track.mp3"}}
+    assert uploaded.id == 9
+    assert uploaded.value.filename == "track.mp3"
+    assert uploaded.value.filesize == 3
+    assert uploaded.value.fileext == "mp3"
+    assert uploaded.model_extra == {}
+    assert uploaded.value.model_extra == {}
 
 
 async def test_generate_voting_number_and_search(api: ApiCall) -> None:
@@ -550,14 +560,34 @@ async def test_generate_voting_number_and_search(api: ApiCall) -> None:
 
     assert await api(num_handler, lambda c: c.requests.generate_voting_number(42)) == 77
 
+    payload = {
+        "id": 42,
+        "topic_id": 7,
+        "number": 3,
+        "status": "approved",
+        "voting_number": 77,
+        "voting_title": "Example performance",
+        "user_title": "Example participant",
+        "city": "Example city",
+        "card_code": "example",
+    }
+
     def search_handler(request: httpx2.Request) -> httpx2.Response:
+        assert request.method == "POST"
         assert request.url.path == "/api/requests/search"
         assert json.loads(request.content) == {"search_text": "neko"}
-        return json_response({"requests": [{"id": 42, "voting_title": "Neko"}]})
+        return json_response({"message": "ok", "requests": [payload]})
 
-    assert await api(search_handler, lambda c: c.requests.search("neko")) == [
-        {"id": 42, "voting_title": "Neko"}
-    ]
+    (result,) = await api(search_handler, lambda c: c.requests.search("neko"))
+    assert isinstance(result, RequestSearchResult)
+    assert result.status is RequestStatus.APPROVED
+    assert result.model_dump(mode="json") == payload
+    assert result.model_extra == {}
+
+    def empty_handler(request: httpx2.Request) -> httpx2.Response:
+        return json_response({"message": "ok", "requests": []})
+
+    assert await api(empty_handler, lambda c: c.requests.search("absent")) == []
 
 
 @pytest.mark.anyio

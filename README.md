@@ -94,6 +94,8 @@ Any argument left out falls back to the environment: `COSPLAY2_API_KEY`,
 - Display strings like `"22.08.26 03:00"` (`TopicState`, `Event.start_time`) become
   naive `datetime`s, as the site shows them.
 - `0`/`1` flags become `bool`. JSON packed into strings (`Event.design`, the plan) is parsed.
+- `requests.search()` returns `RequestSearchResult` models with request, voting,
+  author and card display fields.
 - Closed domain sets (`RequestStatus`, `TopicFieldType`, `PageType`, `PlanNodeType`,
   `EventRole`, `EventStatus`, `EventTime`, `TopicCategory`,
   `PublicRequests`, `TopicTemplate`, `SectionTemplate`, `FieldTemplate`, `FeedbackMark`,
@@ -103,7 +105,9 @@ Any argument left out falls back to the environment: `COSPLAY2_API_KEY`,
 - Unknown fields are kept rather than rejected. Read them via `model.model_extra`.
 
 Talking to the API without this library? [docs/api-notes.md](docs/api-notes.md)
-describes its endpoints, wire formats and quirks.
+documents HTTP methods, inputs, outputs, authentication, wire formats and quirks for
+wrapped and unwrapped frontend routes. The [field reference](docs/api-schemas.md)
+lists observed response schemas and enum values.
 
 ### Errors
 
@@ -179,3 +183,14 @@ credentials); `https://cosplay2.ru` returned HTTP 403 with those credentials. Me
 `users.ratings_global()` and the country/area/region/city variants,
 `users.get_region_geo_id()`, and `geo.code_city()`. Unobserved response shapes
 are returned as JSON data.
+
+Participant showcase calls return typed models: `cards.get_topics_and_cards()`
+returns `TopicsAndCards`, and `cards.get_card()` returns `CardDetails` with
+request, form, badge and user data. Public request calls
+`cards.get_topics_and_requests()` and `cards.get_request()` return
+`TopicsAndRequests` and `PublicRequestDetails`; list rows use `PublicRequest`
+with typed status and visibility settings.
+
+Topic group calls return typed models: `topics.get_with_groups()` returns
+`TopicGroup`; `topics.add_child_topic()` and `topics.delete_child_topic()`
+return lists of `TopicGroupLink` with `group_topic_id` and `child_topic_id`.

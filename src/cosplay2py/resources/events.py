@@ -13,6 +13,7 @@ from cosplay2py.models import (
     EventBrief,
     EventStaff,
     EventState,
+    EventWinners,
     Plan,
     PlanNode,
     TopicsRegistration,
@@ -44,8 +45,8 @@ _GET_TOPICS_STATISTIC = Endpoint[list[TopicStatistic]](
 _GET_STAFF = Endpoint[EventStaff](
     "GET", "/api/events/get_orgs_curators", EventStaff, idempotent=True
 )
-_GET_WINNERS = Endpoint[dict[str, Any]](
-    "GET", "/api/events/winners", dict[str, Any], idempotent=True
+_GET_WINNERS = Endpoint[EventWinners](
+    "GET", "/api/events/winners", EventWinners, idempotent=True
 )
 _GET_PLAN = Endpoint[list[PlanNode]](
     "GET", "/api/events/get_plan", Plan, key="plan", idempotent=True
@@ -201,7 +202,7 @@ class Events(SyncResource):
             _write("delete_curator", {"user_id": user_id, "topic_id": topic_id})
         )
 
-    def get_winners(self) -> dict[str, Any]:
+    def get_winners(self) -> EventWinners:
         """Topics and winning requests of the event."""
         return self._request(_GET_WINNERS)
 
@@ -405,7 +406,7 @@ class AsyncEvents(AsyncResource):
             _write("delete_curator", {"user_id": user_id, "topic_id": topic_id})
         )
 
-    async def get_winners(self) -> dict[str, Any]:
+    async def get_winners(self) -> EventWinners:
         """Topics and winning requests of the event."""
         return await self._request(_GET_WINNERS)
 

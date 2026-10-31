@@ -12,11 +12,15 @@ from cosplay2py import APIResponseValidationError, BadRequestError
 from cosplay2py.models import (
     EventRole,
     PageType,
+    PublicRequestDetails,
+    PublicRequests,
+    RequestStatus,
     TicketCreateMode,
     TicketKind,
+    TopicsAndRequests,
     VotingType,
 )
-from unit.conftest import ApiCall, json_response, make_client
+from unit.conftest import TOPIC, ApiCall, json_response, make_client
 
 
 @pytest.mark.anyio
@@ -476,37 +480,203 @@ async def test_cards_endpoints(api: ApiCall) -> None:
         assert dict(request.url.params) == {"preview": "1"}
         return json_response({"topics": [], "requests": []})
 
-    assert await api(
+    result = await api(
         topics_cards_handler,
         lambda c: c.cards.get_topics_and_cards(preview=True),
-    ) == {"topics": [], "requests": []}
+    )
+    assert result.topics == []
+    assert result.requests == []
 
     def card_handler(request: httpx2.Request) -> httpx2.Response:
         assert request.method == "GET"
         assert request.url.path == "/api/cards/get_card"
         assert dict(request.url.params) == {"request_id": "42", "preview": "1"}
-        return json_response({"request": {"id": 42}})
+        return json_response(
+            {
+                "message": "ok",
+                "request": {
+                    "id": 42,
+                    "event_id": 10,
+                    "topic_id": 1,
+                    "user_id": 7,
+                    "number": 2,
+                    "status": "approved",
+                },
+                "topic": TOPIC,
+                "sections": [
+                    {
+                        "id": 100,
+                        "topic_id": 1,
+                        "title": "Participant",
+                        "order": 0,
+                        "max_repeat": 1,
+                        "visible_to_all": 1,
+                        "registration_blanks": 1,
+                        "image_section": "0",
+                        "user_section": "1",
+                    }
+                ],
+                "fields": [],
+                "reqsections": [],
+                "reqvalues": [],
+                "badges": [
+                    {"request_section_id": 3, "card": "s2", "another_requests": "d4"},
+                    {"request_section_id": 4, "card": "s2", "another_requests": None},
+                ],
+                "users": [
+                    {"id": 7, "title": "Example", "image_update_time": 1700000000}
+                ],
+            }
+        )
 
-    assert await api(card_handler, lambda c: c.cards.get_card(42, preview=True)) == {
-        "request": {"id": 42}
-    }
+    card = await api(card_handler, lambda c: c.cards.get_card(42, preview=True))
+    assert card.request.id == 42
+    assert card.sections[0].image_section is False
+    assert card.sections[0].user_section is True
+    assert card.badges[0].another_requests == "d4"
+    assert card.badges[1].another_requests is None
+    assert card.users[0].image_update_time == datetime.fromtimestamp(1700000000, UTC)
+    assert card.request_sections == card.values == []
+    assert card.model_extra == {}
 
     def topics_reqs_handler(request: httpx2.Request) -> httpx2.Response:
         assert request.method == "GET"
         assert request.url.path == "/api/cards/get_topics_and_requests"
         assert dict(request.url.params) == {}
-        return json_response({"topics": [], "requests": []})
+        return json_response(
+            {
+                "message": "ok",
+                "topics": [
+                    {"id": 1, "url_code": "solo", "card_code": "s", "title": "Solo"}
+                ],
+                "requests": [
+                    {
+                        "id": 42,
+                        "topic_id": 1,
+                        "user_id": 7,
+                        "number": 2,
+                        "status": "approved",
+                        "public_requests": "WITHSTATUS",
+                        "voting_number": 3,
+                        "voting_title": "Example",
+                    },
+                    {
+                        "id": 43,
+                        "topic_id": 1,
+                        "user_id": 8,
+                        "number": 3,
+                        "status": "new",
+                        "public_requests": "WITHOUTSTATUS",
+                        "voting_number": None,
+                        "voting_title": None,
+                    },
+                ],
+            }
+        )
 
-    assert await api(
+    listing = await api(
         topics_reqs_handler, lambda c: c.cards.get_topics_and_requests()
-    ) == {"topics": [], "requests": []}
+    )
+    assert isinstance(listing, TopicsAndRequests)
+    assert listing.topics[0].url_code == "solo"
+    assert listing.requests[0].status is RequestStatus.APPROVED
+    assert listing.requests[0].public_requests is PublicRequests.WITH_STATUS
+    assert listing.requests[0].voting_number == 3
+    assert listing.requests[1].voting_number is None
+    assert listing.requests[1].voting_title is None
+    assert listing.model_extra == listing.requests[0].model_extra == {}
 
     def req_handler(request: httpx2.Request) -> httpx2.Response:
         assert request.method == "GET"
         assert request.url.path == "/api/cards/get_request"
         assert dict(request.url.params) == {"request_id": "42"}
-        return json_response({"request": {"id": 42}})
+        return json_response(
+            {
+                "message": "ok",
+                "request": {
+                    "id": 42,
+                    "event_id": 10,
+                    "topic_id": 1,
+                    "user_id": 7,
+                    "number": 2,
+                    "status": "approved",
+                    "creation_time": "2026-01-01 12:00:00",
+                    "edit_enabled": False,
+                    "friendedit_enabled": True,
+                    "ER": 5,
+                },
+                "topic": TOPIC,
+                "sections": [],
+                "fields": [],
+                "reqsections": [
+                    {"id": 3, "request_id": 42, "topic_section_id": 100, "order": 0}
+                ],
+                "reqvalues": [
+                    {
+                        "id": 4,
+                        "request_id": 42,
+                        "request_section_id": 3,
+                        "topic_field_id": 200,
+                        "value": "Example",
+                        "update_time": "2026-01-01 12:00:00",
+                        "user_id": 7,
+                    }
+                ],
+                "users": [
+                    {"id": 7, "title": "Example", "image_update_time": 1700000000}
+                ],
+            }
+        )
 
-    assert await api(req_handler, lambda c: c.cards.get_request(42)) == {
-        "request": {"id": 42}
-    }
+    detail = await api(req_handler, lambda c: c.cards.get_request(42))
+    assert isinstance(detail, PublicRequestDetails)
+    assert detail.request.er is EventRole.ORG
+    assert detail.request.edit_enabled is False
+    assert detail.request_sections[0].topic_section_id == 100
+    assert detail.values[0].value == "Example"
+    assert detail.values[0].update_time == datetime(2026, 1, 1, 12, tzinfo=UTC)
+    assert detail.users[0].image_update_time == datetime.fromtimestamp(1700000000, UTC)
+    assert detail.model_extra == detail.request.model_extra == {}
+
+    def empty_handler(request: httpx2.Request) -> httpx2.Response:
+        return json_response({"topics": [], "requests": []})
+
+    empty = await api(empty_handler, lambda c: c.cards.get_topics_and_requests())
+    assert empty.topics == empty.requests == []
+
+
+@pytest.mark.anyio
+async def test_card_listing_types(api: ApiCall) -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        assert dict(request.url.params) == {}
+        return json_response(
+            {
+                "topics": [
+                    {"id": 1, "url_code": "solo", "card_code": "s", "title": "Solo"}
+                ],
+                "requests": [
+                    {
+                        "id": 42,
+                        "topic_id": 1,
+                        "voting_number": 2,
+                        "voting_title": "Example",
+                        "win": None,
+                        "user_id": 7,
+                        "image": {
+                            "filename": 1700000000,
+                            "original": {"width": 800, "height": 600},
+                        },
+                    },
+                    {"id": 43, "topic_id": 1, "image": None},
+                ],
+            }
+        )
+
+    result = await api(handler, lambda c: c.cards.get_topics_and_cards())
+    assert result.topics[0].card_code == "s"
+    image = result.requests[0].image
+    assert image is not None
+    assert image.original is not None
+    assert image.original.width == 800
+    assert result.requests[1].image is None
+    assert result.requests[0].model_extra == {}

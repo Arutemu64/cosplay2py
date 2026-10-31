@@ -7,10 +7,12 @@ from cosplay2py.models import (
     FeedbackMark,
     NewRequestSection,
     RequestDetails,
+    RequestSearchResult,
     RequestStatus,
     RequestUserInfo,
     StatusChange,
     TopicChange,
+    UploadedFile,
     UploadedImage,
     ValueChange,
 )
@@ -154,11 +156,11 @@ def _upload_file(
     file: bytes,
     filename: str,
     value_id: int | None,
-) -> Endpoint[dict[str, Any]]:
+) -> Endpoint[UploadedFile]:
     return Endpoint(
         "POST",
         "/api/requests/upload_file",
-        dict[str, Any],
+        UploadedFile,
         data={
             "request_id": str(request_id),
             "request_section_id": str(request_section_id),
@@ -266,11 +268,11 @@ def _generate_voting_number(request_id: int) -> Endpoint[int]:
     )
 
 
-def _search(query: str) -> Endpoint[list[dict[str, Any]]]:
+def _search(query: str) -> Endpoint[list[RequestSearchResult]]:
     return Endpoint(
         "POST",
         "/api/requests/search",
-        list[dict[str, Any]],
+        list[RequestSearchResult],
         key="requests",
         json={"search_text": query},
         idempotent=True,
@@ -440,7 +442,7 @@ class Requests(SyncResource):
         filename: str,
         *,
         value_id: int | None = None,
-    ) -> dict[str, Any]:
+    ) -> UploadedFile:
         """Upload a file into a ``file`` field of a request.
 
         :param file: the file's contents.
@@ -514,7 +516,7 @@ class Requests(SyncResource):
         """Assign and return the next voting number for a request."""
         return self._request(_generate_voting_number(request_id))
 
-    def search(self, query: str) -> list[dict[str, Any]]:
+    def search(self, query: str) -> list[RequestSearchResult]:
         """Search requests in the event by text."""
         return self._request(_search(query))
 
@@ -685,7 +687,7 @@ class AsyncRequests(AsyncResource):
         filename: str,
         *,
         value_id: int | None = None,
-    ) -> dict[str, Any]:
+    ) -> UploadedFile:
         """Upload a file into a ``file`` field of a request.
 
         :param file: the file's contents.
@@ -759,7 +761,7 @@ class AsyncRequests(AsyncResource):
         """Assign and return the next voting number for a request."""
         return await self._request(_generate_voting_number(request_id))
 
-    async def search(self, query: str) -> list[dict[str, Any]]:
+    async def search(self, query: str) -> list[RequestSearchResult]:
         """Search requests in the event by text."""
         return await self._request(_search(query))
 

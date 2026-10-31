@@ -49,6 +49,8 @@ class TopicSection(Cosplay2Model):
     """How many times the section may repeat (e.g. several participants)."""
     visible_to_all: bool
     registration_blanks: bool
+    image_section: bool | None = None
+    user_section: bool | None = None
     internal_name: Annotated[SectionTemplate | None, EmptyAsNone] = None
 
 
@@ -121,13 +123,17 @@ class RequestValue(Cosplay2Model):
     request_id: int
     request_section_id: int
     topic_field_id: int
+    """The form definition's ``TopicField.id``, shared across requests."""
     value: str | None = None
+    """Stored text; image and file fields contain JSON-encoded metadata."""
     update_time: UTCDateTime | None = None
     user_id: int | None = None
     changed: int | None = None
 
 
 class ImageSize(Cosplay2Model):
+    """Dimensions of an uploaded image or one of its resized versions."""
+
     width: int
     height: int
 
@@ -143,6 +149,27 @@ class ImageValue(Cosplay2Model):
     original: ImageSize | None = None
     large: ImageSize | None = None
     medium: ImageSize | None = None
+
+
+class FileValue(Cosplay2Model):
+    """A file uploaded to a ``file`` field.
+
+    ``RequestValue.value`` of such a field holds this object as a JSON string.
+    """
+
+    filename: str
+    filesize: int
+    """Size of the stored file in bytes."""
+    fileext: str
+    """File extension returned by the server; not a closed domain."""
+
+
+class UploadedFile(Cosplay2Model):
+    """A file just stored in a request's form field."""
+
+    id: int
+    """``RequestValue.id`` of the stored value."""
+    value: FileValue
 
 
 class UploadedImage(Cosplay2Model):
@@ -223,6 +250,8 @@ class RequestDetails(Cosplay2Model):
 
 
 class Comment(Cosplay2Model):
+    """A comment in a request's discussion, with notification flags."""
+
     id: int
     user_id: int
     user_title: str | None = None
@@ -240,11 +269,15 @@ class Comment(Cosplay2Model):
 
 
 class RequestUser(UserBrief):
+    """A participant profile included in ``requests.get_user``."""
+
     id: int
     age: int | None = None
 
 
 class OtherRequest(Cosplay2Model):
+    """Another request by the participant in the same event."""
+
     request_id: int
     status: RequestStatus
     card: str | None = None
@@ -288,3 +321,17 @@ class RequestUserInfo(Cosplay2Model):
     user: RequestUser
     another_requests: list[OtherRequest] = Field(default_factory=list)
     feedbacks: list[Feedback] = Field(default_factory=list)
+
+
+class RequestSearchResult(Cosplay2Model):
+    """A request found by text search in an event."""
+
+    id: int
+    topic_id: int
+    number: int
+    status: RequestStatus
+    voting_number: int
+    voting_title: str
+    user_title: str
+    city: str
+    card_code: str

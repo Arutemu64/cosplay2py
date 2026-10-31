@@ -7,6 +7,48 @@ means a breaking change.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-01
+
+### Fixed
+
+- **Breaking:** Type `Topic.child_topics` as `str | None` using the observed
+  grouping display text from `topics.get_list(with_group_text=True)`, replacing
+  the unverified `Any` type.
+
+### Added
+
+- Typed request upload response models `UploadedFile` and `FileValue`.
+
+- Typed public request list and detail models: `PublicRequest`,
+  `TopicsAndRequests`, and `PublicRequestDetails`.
+
+- Typed request search result model `RequestSearchResult`.
+
+- Typed topic group and child-link response models.
+
+- Typed participant card models and optional topic section image/user flags.
+
+### Changed
+
+- **Breaking:** `requests.upload_file()` returns `UploadedFile` instead of a
+  dictionary.
+
+- **Breaking:** `cards.get_topics_and_requests()` and `cards.get_request()`
+  return `TopicsAndRequests` and `PublicRequestDetails` models instead of dictionaries.
+
+- **Breaking:** `requests.search()` returns `RequestSearchResult` models instead
+  of dictionaries.
+
+- **Breaking:** `topics.get_with_groups()` returns `TopicGroup` instead of a
+  dictionary; `topics.add_child_topic()` and `topics.delete_child_topic()`
+  return `TopicGroupLink` models instead of dictionaries.
+
+- **Breaking:** `cards.get_topics_and_cards()` and `cards.get_card()` return
+  `TopicsAndCards` and `CardDetails` models instead of dictionaries.
+
+- **Breaking:** `events.get_winners()` returns `EventWinners` with typed `Topic`
+  and `EventWinner` lists instead of a dictionary.
+
 ## [0.3.0] - 2026-10-30
 
 ### Added
@@ -113,6 +155,8 @@ means a breaking change.
 - API reference notes, usage examples, and offline tests covering both clients
   and asyncio/Trio, with CI for Python 3.12-3.15 and package installation.
 
-[Unreleased]: https://github.com/Arutemu64/cosplay2py/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/Arutemu64/cosplay2py/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/Arutemu64/cosplay2py/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/Arutemu64/cosplay2py/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Arutemu64/cosplay2py/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Arutemu64/cosplay2py/releases/tag/v0.1.0

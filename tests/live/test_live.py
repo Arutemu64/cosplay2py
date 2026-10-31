@@ -91,6 +91,34 @@ def test_request_chain(client: Cosplay2) -> None:
         report_drift(client.requests.get_value_history(first.id, details.values[0].id))
 
 
+def test_public_request_chain(client: Cosplay2) -> None:
+    """Walk the public request list to a detail response using a returned ID."""
+    listing = report_drift(client.cards.get_topics_and_requests())
+    if not listing.requests:
+        pytest.skip("event has no public requests")
+
+    first = listing.requests[0]
+    assert first.topic_id in {topic.id for topic in listing.topics}
+    details = report_drift(client.cards.get_request(first.id))
+    assert details.request.id == first.id
+    assert details.request.topic_id == first.topic_id
+    assert details.topic.id == first.topic_id
+
+
+def test_topic_groups(client: Cosplay2) -> None:
+    """Validate group responses and any existing child links without editing them."""
+    topics = client.topics.get_list()
+    if not topics:
+        pytest.skip("event has no topics")
+    for topic in topics:
+        group = report_drift(client.topics.get_with_groups(topic.url_code))
+        assert group.topic.id == topic.id
+        topic_ids = {item.id for item in group.topics}
+        for link in group.child_topics:
+            assert link.group_topic_id == topic.id
+            assert link.child_topic_id in topic_ids
+
+
 def test_page(client: Cosplay2) -> None:
     page = next((p for p in client.pages.get_list() if p.type == "page"), None)
     if page is None:

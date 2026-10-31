@@ -5,14 +5,18 @@ from typing import Any
 
 from cosplay2py._base_client import Endpoint
 from cosplay2py.models import (
+    CardDetails,
     EventDesign,
     MediaData,
     Page,
     PageDetails,
     PageType,
+    PublicRequestDetails,
     TicketCreateMode,
     TicketKind,
     TicketStatistic,
+    TopicsAndCards,
+    TopicsAndRequests,
     VotingStatistics,
     VotingType,
 )
@@ -299,39 +303,39 @@ def _select_winner(
     )
 
 
-_CARDS_GET_TOPICS_AND_REQUESTS = Endpoint[dict[str, Any]](
-    "GET", "/api/cards/get_topics_and_requests", dict[str, Any], idempotent=True
+_CARDS_GET_TOPICS_AND_REQUESTS = Endpoint[TopicsAndRequests](
+    "GET", "/api/cards/get_topics_and_requests", TopicsAndRequests, idempotent=True
 )
 
 
-def _get_topics_and_cards(preview: bool) -> Endpoint[dict[str, Any]]:
+def _get_topics_and_cards(preview: bool) -> Endpoint[TopicsAndCards]:
     return Endpoint(
         "GET",
         "/api/cards/get_topics_and_cards",
-        dict[str, Any],
+        TopicsAndCards,
         params={"preview": "1"} if preview else None,
         idempotent=True,
     )
 
 
-def _get_card(request_id: int, preview: bool) -> Endpoint[dict[str, Any]]:
+def _get_card(request_id: int, preview: bool) -> Endpoint[CardDetails]:
     params: dict[str, str] = {"request_id": str(request_id)}
     if preview:
         params["preview"] = "1"
     return Endpoint(
         "GET",
         "/api/cards/get_card",
-        dict[str, Any],
+        CardDetails,
         params=params,
         idempotent=True,
     )
 
 
-def _get_card_request(request_id: int) -> Endpoint[dict[str, Any]]:
+def _get_card_request(request_id: int) -> Endpoint[PublicRequestDetails]:
     return Endpoint(
         "GET",
         "/api/cards/get_request",
-        dict[str, Any],
+        PublicRequestDetails,
         params={"request_id": str(request_id)},
         idempotent=True,
     )
@@ -966,25 +970,25 @@ class AsyncTickets(AsyncResource):
 class Cards(SyncResource):
     """Public participant cards and submitted request listings."""
 
-    def get_topics_and_cards(self, *, preview: bool = False) -> dict[str, Any]:
+    def get_topics_and_cards(self, *, preview: bool = False) -> TopicsAndCards:
         """Topics and participant cards shown on the event site.
 
         :param preview: Include cards in organizer preview mode.
         """
         return self._request(_get_topics_and_cards(preview))
 
-    def get_card(self, request_id: int, *, preview: bool = False) -> dict[str, Any]:
+    def get_card(self, request_id: int, *, preview: bool = False) -> CardDetails:
         """A single participant card.
 
         :param preview: Fetch in organizer preview mode.
         """
         return self._request(_get_card(request_id, preview))
 
-    def get_topics_and_requests(self) -> dict[str, Any]:
+    def get_topics_and_requests(self) -> TopicsAndRequests:
         """Topics and submitted requests shown on the public request list."""
         return self._request(_CARDS_GET_TOPICS_AND_REQUESTS)
 
-    def get_request(self, request_id: int) -> dict[str, Any]:
+    def get_request(self, request_id: int) -> PublicRequestDetails:
         """A single request from the public request list."""
         return self._request(_get_card_request(request_id))
 
@@ -992,26 +996,24 @@ class Cards(SyncResource):
 class AsyncCards(AsyncResource):
     """Public participant cards and submitted request listings."""
 
-    async def get_topics_and_cards(self, *, preview: bool = False) -> dict[str, Any]:
+    async def get_topics_and_cards(self, *, preview: bool = False) -> TopicsAndCards:
         """Topics and participant cards shown on the event site.
 
         :param preview: Include cards in organizer preview mode.
         """
         return await self._request(_get_topics_and_cards(preview))
 
-    async def get_card(
-        self, request_id: int, *, preview: bool = False
-    ) -> dict[str, Any]:
+    async def get_card(self, request_id: int, *, preview: bool = False) -> CardDetails:
         """A single participant card.
 
         :param preview: Fetch in organizer preview mode.
         """
         return await self._request(_get_card(request_id, preview))
 
-    async def get_topics_and_requests(self) -> dict[str, Any]:
+    async def get_topics_and_requests(self) -> TopicsAndRequests:
         """Topics and submitted requests shown on the public request list."""
         return await self._request(_CARDS_GET_TOPICS_AND_REQUESTS)
 
-    async def get_request(self, request_id: int) -> dict[str, Any]:
+    async def get_request(self, request_id: int) -> PublicRequestDetails:
         """A single request from the public request list."""
         return await self._request(_get_card_request(request_id))

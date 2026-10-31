@@ -1,5 +1,5 @@
 from enum import IntEnum, StrEnum
-from typing import Annotated, Any, Literal
+from typing import Annotated, Literal
 
 from cosplay2py._types import EmptyAsNone, LocalDateTime, UTCDateTime
 from cosplay2py.models._base import Cosplay2Model
@@ -134,8 +134,23 @@ class Topic(Cosplay2Model):
     card_name_rule: str | None = None
     card_announcement_rule: str | None = None
     card_diplom_rule: str | None = None
-    child_topics: list[Any] | None = None
-    """Only present when listing with ``with_group_text=True``."""
+    child_topics: str | None = None
+    """Grouping display text returned with ``with_group_text=True``."""
+
+
+class TopicGroupLink(Cosplay2Model):
+    """A link between a group topic and one of its child topics."""
+
+    group_topic_id: int
+    child_topic_id: int
+
+
+class TopicGroup(Cosplay2Model):
+    """A group topic, all event topics, and its child links."""
+
+    topic: Topic
+    topics: list[Topic]
+    child_topics: list[TopicGroupLink]
 
 
 class TopicRequest(Cosplay2Model):
@@ -162,6 +177,8 @@ class TopicRequest(Cosplay2Model):
 
 
 class TopicRequests(Cosplay2Model):
+    """A topic and the requests in its request list."""
+
     topic: Topic
     requests: list[TopicRequest]
 
@@ -185,6 +202,8 @@ class EventRequest(Cosplay2Model):
 
 
 class PlannerRequest(Cosplay2Model):
+    """A request available to the schedule planner, with its duration."""
+
     id: int
     topic_id: int
     number: int
@@ -211,5 +230,7 @@ class PlannerMember(Cosplay2Model):
 
 
 class PlannerData(Cosplay2Model):
+    """Requests and their participants available to the schedule planner."""
+
     requests: list[PlannerRequest]
     members: list[PlannerMember]

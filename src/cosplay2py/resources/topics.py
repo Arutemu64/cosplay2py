@@ -9,6 +9,8 @@ from cosplay2py.models import (
     SectionTemplate,
     Topic,
     TopicForm,
+    TopicGroup,
+    TopicGroupLink,
     TopicRequest,
     TopicRequests,
     TopicTemplate,
@@ -53,11 +55,11 @@ def _get_form(url_code: str) -> Endpoint[TopicForm]:
     )
 
 
-def _get_with_groups(url_code: str) -> Endpoint[dict[str, Any]]:
+def _get_with_groups(url_code: str) -> Endpoint[TopicGroup]:
     return Endpoint(
         "POST",
         "/api/topics/get_with_groups",
-        dict[str, Any],
+        TopicGroup,
         json={"topic_url_code": url_code},
         idempotent=True,
     )
@@ -65,11 +67,11 @@ def _get_with_groups(url_code: str) -> Endpoint[dict[str, Any]]:
 
 def _child_topic(
     action: str, url_code: str, child_topic_id: int
-) -> Endpoint[list[dict[str, Any]]]:
+) -> Endpoint[list[TopicGroupLink]]:
     return Endpoint(
         "POST",
         f"/api/topics/{action}_child_topic",
-        list[dict[str, Any]],
+        list[TopicGroupLink],
         key="child_topics",
         json={"topic_url_code": url_code, "child_topic_id": child_topic_id},
         idempotent=False,
@@ -320,19 +322,19 @@ class Topics(SyncResource):
         """Renumber requests in a topic according to the planner schedule."""
         self._request(_write("reorder_requests", {"topic_id": topic_id}))
 
-    def get_with_groups(self, url_code: str) -> dict[str, Any]:
+    def get_with_groups(self, url_code: str) -> TopicGroup:
         """A group topic with all event topics and its linked child topics."""
         return self._request(_get_with_groups(url_code))
 
     def add_child_topic(
         self, url_code: str, child_topic_id: int
-    ) -> list[dict[str, Any]]:
+    ) -> list[TopicGroupLink]:
         """Add ``child_topic_id`` to the group topic ``url_code``."""
         return self._request(_child_topic("add", url_code, child_topic_id))
 
     def delete_child_topic(
         self, url_code: str, child_topic_id: int
-    ) -> list[dict[str, Any]]:
+    ) -> list[TopicGroupLink]:
         """Remove ``child_topic_id`` from the group topic ``url_code``."""
         return self._request(_child_topic("del", url_code, child_topic_id))
 
@@ -562,18 +564,18 @@ class AsyncTopics(AsyncResource):
         """Renumber requests in a topic according to the planner schedule."""
         await self._request(_write("reorder_requests", {"topic_id": topic_id}))
 
-    async def get_with_groups(self, url_code: str) -> dict[str, Any]:
+    async def get_with_groups(self, url_code: str) -> TopicGroup:
         """A group topic with all event topics and its linked child topics."""
         return await self._request(_get_with_groups(url_code))
 
     async def add_child_topic(
         self, url_code: str, child_topic_id: int
-    ) -> list[dict[str, Any]]:
+    ) -> list[TopicGroupLink]:
         """Add ``child_topic_id`` to the group topic ``url_code``."""
         return await self._request(_child_topic("add", url_code, child_topic_id))
 
     async def delete_child_topic(
         self, url_code: str, child_topic_id: int
-    ) -> list[dict[str, Any]]:
+    ) -> list[TopicGroupLink]:
         """Remove ``child_topic_id`` from the group topic ``url_code``."""
         return await self._request(_child_topic("del", url_code, child_topic_id))

@@ -26,6 +26,8 @@ class RatingCategory(StrEnum):
 
 
 class UserSearchResult(UserBrief):
+    """A user found by nickname in the site's user picker."""
+
     id: int | None = None
     """Same as ``user_id``."""
     friends_boost: int | None = None
@@ -33,6 +35,8 @@ class UserSearchResult(UserBrief):
 
 
 class RatingUser(Cosplay2Model):
+    """A participant and their rating in a leaderboard."""
+
     id: int | None = None
     title: str | None = None
     city: str | None = None
@@ -42,6 +46,8 @@ class RatingUser(Cosplay2Model):
 
 
 class RatingGroup(Cosplay2Model):
+    """Rating totals and leading participants for a geographic group."""
+
     geo_id: int | None = None
     country: str | None = None
     country_code: str | None = None
@@ -55,6 +61,8 @@ class RatingGroup(Cosplay2Model):
 
 
 class RatingGeo(Cosplay2Model):
+    """Geographic details accompanying a regional or city leaderboard."""
+
     id: int | None = None
     country: str | None = None
     country_code: str | None = None
@@ -67,6 +75,8 @@ class RatingGeo(Cosplay2Model):
 
 
 class RatingRegion(Cosplay2Model):
+    """A leaderboard region and the area it belongs to."""
+
     region_id: int | None = None
     region: str | None = None
     area: str | None = None
@@ -75,22 +85,30 @@ class RatingRegion(Cosplay2Model):
 
 
 class GlobalRatings(Cosplay2Model):
+    """Global participant leaders and ratings grouped by country."""
+
     topusers: list[RatingUser] | None = None
     countries: list[RatingGroup] | None = None
 
 
 class CountryRatings(Cosplay2Model):
+    """Country participant leaders and ratings grouped by area and region."""
+
     topusers: list[RatingUser] | None = None
     areas: list[RatingGroup] | None = None
     regions: list[RatingGroup] | None = None
 
 
 class AreaRatings(Cosplay2Model):
+    """Area participant leaders and ratings grouped by region."""
+
     topusers: list[RatingUser] | None = None
     regions: list[RatingGroup] | None = None
 
 
 class RegionRatings(Cosplay2Model):
+    """Region geography, participant leaders and ratings grouped by city."""
+
     geo: RatingGeo | None = None
     region: RatingRegion | None = None
     topusers: list[RatingUser] | None = None
@@ -98,12 +116,16 @@ class RegionRatings(Cosplay2Model):
 
 
 class CityRatings(Cosplay2Model):
+    """City geography and its participant leaderboard."""
+
     geo: RatingGeo | None = None
     region: RatingRegion | None = None
     userlist: list[RatingUser] | None = None
 
 
 class CityGeodata(Cosplay2Model):
+    """City location data returned by ``geo.code_city``."""
+
     country_code: str | None = None
     country: str | None = None
     region: str | None = None
