@@ -910,10 +910,10 @@ A request with its topic, form schema and filled-in values.
 | `request` | [Request](#request) object | Observed. |
 | `author` | [UserBrief](#userbrief) object | Observed. |
 | `topic` | [Topic](#topic) object | Observed. |
-| `sections` | array of [TopicSection](#topicsection) object | Observed. |
-| `fields` | array of [TopicField](#topicfield) object | Observed. |
-| `reqsections` | array of [RequestSection](#requestsection) object | Observed. |
-| `reqvalues` | array of [RequestValue](#requestvalue) object | Observed. |
+| `sections` | array of [TopicSection](#topicsection) object | Observed. Referenced by `fields[].section_id` and `reqsections[].topic_section_id`. |
+| `fields` | array of [TopicField](#topicfield) object | Observed. Referenced by `reqvalues[].topic_field_id`; `section_id` references `sections[].id`. |
+| `reqsections` | array of [RequestSection](#requestsection) object | Observed. Filled section instances; `topic_section_id` references `sections[].id`. |
+| `reqvalues` | array of [RequestValue](#requestvalue) object | Observed. Filled values; `topic_field_id` references `fields[].id` and `request_section_id` references `reqsections[].id`. |
 | `scores` | array of [RequestScore](#requestscore) object | Optional. |
 | `editEnabled` | flag (boolean or 0/1; see wire formats) or null | Optional. |
 | `friendeditEnabled` | flag (boolean or 0/1; see wire formats) or null | Optional. |
@@ -1412,21 +1412,6 @@ Definition: [models/users.py](../src/cosplay2py/models/users.py).
 
 Definition: [models/users.py](../src/cosplay2py/models/users.py).
 
-## CityGeodata
-
-| HTTP field | Wire type | Presence / description |
-|---|---|---|
-| `country_code` | string or null | Optional. |
-| `country` | string or null | Optional. |
-| `region` | string or null | Optional. |
-| `city` | string or null | Optional. |
-| `bounds` | string or null | Optional. |
-| `viewport` | string or null | Optional. |
-| `location_lng` | string or null | Optional. |
-| `location_lat` | string or null | Optional. |
-
-Definition: [models/users.py](../src/cosplay2py/models/users.py).
-
 ## Plan
 
 A JSON-encoded string containing an array of [PlanNode](#plannode) objects.
@@ -1449,8 +1434,8 @@ GET `/api/events/winners`.
 | `id` | integer | Request identifier. |
 | `topic_id` | integer | Topic identifier. |
 | `number` | integer | Request number within the topic. |
-| `voting_number` | integer | Voting number. |
-| `voting_title` | string | Display title. |
+| `voting_number` | integer or null | Voting number. |
+| `voting_title` | string or null | Display title. |
 | `win` | integer | Award placement. |
 | `win_title` | string or null | Optional; all captured values are null. String type follows existing request models. |
 
@@ -1496,7 +1481,7 @@ present in populated responses.
 ## RequestSearchResult
 
 A search result from POST `/api/requests/search`, key `requests`.
-All fields were present and non-null in all 15 observed rows.
+All fields were present in observed rows; voting fields can be `null`.
 
 | Wire field | Wire type | Meaning |
 |---|---|---|
@@ -1504,8 +1489,8 @@ All fields were present and non-null in all 15 observed rows.
 | `topic_id` | integer | Topic identifier. |
 | `number` | integer | Request number. |
 | `status` | [RequestStatus](#requeststatus) | Request status. |
-| `voting_number` | integer | Voting number. |
-| `voting_title` | string | Voting title. |
+| `voting_number` | integer or null | Voting number. |
+| `voting_title` | string or null | Voting title. |
 | `user_title` | string | Author display title. |
 | `city` | string | City display text. |
 | `card_code` | string | Card code. |

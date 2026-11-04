@@ -1,7 +1,8 @@
 # cosplay2py
 
-Unofficial typed sync and async client for the [Cosplay2.ru](https://cosplay2.ru) API, built on
-[httpx2](https://github.com/pydantic/httpx2) and [Pydantic](https://docs.pydantic.dev).
+Unofficial typed sync and async client (plus an optional read-only [MCP server](#optional-mcp-server))
+for the [Cosplay2.ru](https://cosplay2.ru) API, built on [httpx2](https://github.com/pydantic/httpx2)
+and [Pydantic](https://docs.pydantic.dev).
 
 > [!WARNING]
 > This project is AI-generated: most of the code, tests and documentation were written
@@ -29,6 +30,50 @@ uv add "cosplay2py @ git+https://github.com/Arutemu64/cosplay2py" --tag v0.3.0
 
 Versions follow SemVer. On `0.x`, a minor bump (`0.1` → `0.2`) may break things and a
 patch bump never does. See [CHANGELOG.md](CHANGELOG.md).
+
+## Optional MCP server
+
+`cosplay2py[mcp]` provides `cosplay2py-mcp`, a read-only `stdio` MCP server exposing
+15 tools across five workflows:
+
+- **Event overview:** `cosplay2_get_event_settings`, `cosplay2_get_event_state`, `cosplay2_list_topic_deadlines`, `cosplay2_list_topic_statistics`
+- **Nominations:** `cosplay2_list_topics`, `cosplay2_get_topic_form`
+- **Applications:** `cosplay2_list_topic_requests`, `cosplay2_list_all_requests`, `cosplay2_search_requests`, `cosplay2_get_request`, `cosplay2_list_request_comments`
+- **Site pages:** `cosplay2_list_pages`, `cosplay2_get_page`
+- **Schedule & results:** `cosplay2_get_schedule`, `cosplay2_get_winners`
+
+Run it without a local clone using [uvx](https://docs.astral.sh/uv/guides/tools/#requesting-extras)
+(from PyPI or a pinned GitHub release tag):
+
+```shell
+uvx --from "cosplay2py[mcp]" cosplay2py-mcp
+uvx --from "cosplay2py[mcp] @ git+https://github.com/Arutemu64/cosplay2py@v0.5.0" cosplay2py-mcp
+```
+
+Universal `mcpServers` configuration (Claude Desktop, Claude Code, Cursor, Antigravity, Windsurf):
+
+```json
+{
+  "mcpServers": {
+    "cosplay2": {
+      "command": "uvx",
+      "args": ["--from", "cosplay2py[mcp]", "cosplay2py-mcp"],
+      "env": {
+        "COSPLAY2_BASE_URL": "https://example.cosplay2.ru",
+        "COSPLAY2_API_KEY": "your-api-key",
+        "COSPLAY2_API_SECRET": "your-api-secret"
+      }
+    }
+  }
+}
+```
+
+Never commit credentials to shared project files: in project-scoped configs (such as
+Claude Code's `.mcp.json` or VS Code's `.vscode/mcp.json`), reference environment
+variables (`${COSPLAY2_API_KEY}` in Claude Code, `${env:COSPLAY2_API_KEY}` under
+`"servers"` in VS Code, or `env_vars` in Codex's `config.toml`). For a local checkout,
+use `uv sync --extra mcp` and `uv run --extra mcp cosplay2py-mcp`. See
+[MCP setup, host configs, and tool catalog](docs/mcp.md).
 
 ## Authentication
 
@@ -79,7 +124,7 @@ Any argument left out falls back to the environment: `COSPLAY2_API_KEY`,
 | `events`      | `get_settings`, `save_setting`, `get_state`, `get_topics_state`, `get_topics_statistic`, `get_staff`, `add_org`, `delete_org`, `change_main_org`, `add_curator`, `delete_curator`, `get_winners`, `get_plan`, `save_plan`, `get_blank`, `get_reg_topics`, `get_reg_alphabet`, `search`, `set_deadline` |
 | `topics`      | `get_list`, `get_requests`, `get_all_requests`, `get_requests_for_planner`, `get_form`, `get_with_groups`, `add_child_topic`, `delete_child_topic`, `create`, `delete`, `reorder`, `fill_from_template`, `fill_from_topic`, `add_section`, `save_section`, `delete_section`, `add_field`, `delete_field`, `save_field`, `save_topic`, `reorder_section`, `reorder_field`, `generate_card_titles`, `reorder_requests` |
 | `requests`    | `get`, `get_comments`, `get_org_comments`, `get_user`, `generate_card_title`, `generate_card_announcement`, `generate_card_diplom`, `generate_voting_number`, `search`, `get_value_history`, `add_comment`, `delete_comment`, `save_field`, `upload_image`, `delete_image`, `upload_file`, `delete_file`, `save_data`, `set_status`, `create`, `create_section`, `delete_section`, `change_topic`, `add_org_comment`, `delete_org_comment`, `get_feedbacks`, `add_feedback`, `delete_feedback` |
-| `users`       | `search` |
+| `users`       | `search`, `ratings_global`, `ratings_country`, `ratings_area`, `ratings_region`, `ratings_city` |
 | `design`      | `get`, `get_images`, `save`, `upload_image`, `delete_image`, `delete_panel_logo`, `delete_header_logo`, `delete_site_background` |
 | `pages`       | `get_list`, `get`, `create`, `save_field`, `save_fields`, `delete`, `reorder` |
 | `media`       | `get_data`, `add_album`, `save_album_field`, `delete_album` |
@@ -176,13 +221,6 @@ uv run pytest -m live -rw
 
 `-rw` lists warnings: fields the API returns that the models don't declare yet show up
 as `UnknownFieldsWarning`, an early sign of API drift.
-
-Portal reads work with the configured event base URL (verified with event API
-credentials); `https://cosplay2.ru` returned HTTP 403 with those credentials. Methods: `events.filter_list()`,
-`events.get_types()`, `events.create_festival()`, `events.create_festival_logo()`,
-`users.ratings_global()` and the country/area/region/city variants,
-`users.get_region_geo_id()`, and `geo.code_city()`. Unobserved response shapes
-are returned as JSON data.
 
 Participant showcase calls return typed models: `cards.get_topics_and_cards()`
 returns `TopicsAndCards`, and `cards.get_card()` returns `CardDetails` with

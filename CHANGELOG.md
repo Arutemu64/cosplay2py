@@ -7,6 +7,27 @@ means a breaking change.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-04
+
+### Added
+
+- Optional `mcp` extra and `cosplay2py-mcp` stdio server using FastMCP 4, with
+  fifteen read-only event, nomination, application, comment, page, schedule and
+  winner tools, typed results and bounded list pagination.
+
+### Fixed
+
+- Accept null voting numbers and titles in request search and event winners,
+  including through MCP tools.
+
+### Removed
+
+- **Breaking:** Removed `geo` resource (`Geo`, `AsyncGeo`, `geo.code_city()`)
+  and model `CityGeodata`.
+- **Breaking:** Removed portal and region lookup methods `events.filter_list()`,
+  `events.get_types()`, `events.create_festival()`, `events.create_festival_logo()`,
+  and `users.get_region_geo_id()`.
+
 ## [0.4.0] - 2026-11-01
 
 ### Fixed
@@ -155,7 +176,8 @@ means a breaking change.
 - API reference notes, usage examples, and offline tests covering both clients
   and asyncio/Trio, with CI for Python 3.12-3.15 and package installation.
 
-[Unreleased]: https://github.com/Arutemu64/cosplay2py/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/Arutemu64/cosplay2py/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/Arutemu64/cosplay2py/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/Arutemu64/cosplay2py/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/Arutemu64/cosplay2py/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Arutemu64/cosplay2py/compare/v0.1.0...v0.2.0

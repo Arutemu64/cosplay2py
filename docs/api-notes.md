@@ -98,6 +98,5 @@ can change state.
 | Empty collection | Sometimes `null` rather than `[]` | Registration report participants |
 | Unset optional enum | Sometimes `""` rather than `null` | Custom section/field `internal_name` |
 
-Local times use `events/get_settings.event.timezone`. Geography also varies:
-`geo/code_city` has returned string coordinates, while rating geography uses numbers.
+Local times use `events/get_settings.event.timezone`.
 Use endpoint-specific descriptions where they narrow this table.

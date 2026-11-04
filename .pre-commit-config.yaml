@@ -1,23 +1,29 @@
+exclude: ^\.(agents|claude)/
 repos:
   - repo: builtin
     hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
       - id: mixed-line-ending
         args: [--fix=lf]
   - repo: local
     hooks:
       - id: ruff-check
         name: ruff check
-        entry: uv run --locked ruff check --fix
+        entry: uv run --locked --extra mcp ruff check --fix
         language: system
         types_or: [python, pyi]
       - id: ruff-format
         name: ruff format
-        entry: uv run --locked ruff format
+        entry: uv run --locked --extra mcp ruff format
         language: system
         types_or: [python, pyi]
       - id: ty
         name: ty check
-        entry: uv run --locked ty check
+        entry: uv run --locked --extra mcp ty check
         language: system
         pass_filenames: false
         always_run: true

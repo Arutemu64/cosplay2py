@@ -1,6 +1,6 @@
 [project]
 name = "cosplay2py"
-version = "0.4.0"
+version = "0.5.0"
 description = "Unofficial typed sync and async client for the Cosplay2.ru API"
 readme = "README.md"
 authors = [
@@ -18,6 +18,8 @@ keywords = [
     "typed",
     "pydantic",
     "httpx2",
+    "mcp",
+    "fastmcp",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -47,11 +49,22 @@ Homepage = "https://github.com/Arutemu64/cosplay2py"
 Repository = "https://github.com/Arutemu64/cosplay2py"
 Issues = "https://github.com/Arutemu64/cosplay2py/issues"
 
+[project.optional-dependencies]
+mcp = [
+    "fastmcp>=4.0.0,<5",
+]
+
+[project.scripts]
+cosplay2py-mcp = "cosplay2py.mcp:main"
+
 [build-system]
 requires = ["uv_build>=0.12.3,<0.13.0"]
 build-backend = "uv_build"
 
 [dependency-groups]
+audit = [
+    "pip-audit>=2.10.1",
+]
 dev = [
     "pytest>=9.2.0",
     "ruff>=0.17.3",
@@ -59,20 +72,39 @@ dev = [
     "ty==0.0.93",
     "trio>=0.26",
     "prek>=0.5.7",
+    "pytest-cov>=7.1.0",
 ]
 
 [tool.pytest]
 strict = true
 testpaths = ["tests"]
 # Live tests hit the real site; run them explicitly with `pytest -m live`.
-addopts = ["-m", "not live"]
+addopts = [
+    "-m",
+    "not live",
+    "--cov=cosplay2py",
+    "--cov-report=term-missing",
+    "--cov-fail-under=80",
+]
 markers = [
     "live: calls the real Cosplay2 API (needs COSPLAY2_API_KEY, COSPLAY2_API_SECRET, COSPLAY2_BASE_URL)",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["src/cosplay2py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
 ]
 
 [tool.ruff]
 line-length = 88
 src = ["src", "tests"]
+extend-exclude = [".agents", ".claude"]
 
 [tool.ruff.lint]
 # Keep Ruff's curated default rule set (`select` would replace it) and add more.
@@ -102,6 +134,13 @@ known-first-party = ["cosplay2py"]
 [tool.ruff.format]
 docstring-code-format = true
 line-ending = "lf"
+
+[tool.ty.environment]
+python-version = "3.12"
+
+[tool.ty.rules]
+possibly-unresolved-reference = "error"
+unused-ignore-comment = "warn"
 
 [tool.ty.src]
 include = ["src", "tests"]

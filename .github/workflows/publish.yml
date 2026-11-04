@@ -18,18 +18,15 @@ jobs:
           python-version: '3.12'
       - name: Verify release tag
         run: test "$GITHUB_REF_NAME" = "v$(uv version --short)"
-      - run: uv sync --locked
-      - run: uv run --locked pytest
-      - run: uv run --locked ruff check
-      - run: uv run --locked ruff format --check
-      - run: uv run --locked ty check
+      - run: uv sync --locked --extra mcp
+      - run: uv run --locked --extra mcp pytest
+      - run: uv run --locked --extra mcp ruff check
+      - run: uv run --locked --extra mcp ruff format --check
+      - run: uv run --locked --extra mcp ty check
       - run: uv build
-      - run: uv venv .package-venv --python 3.12
-      - run: uv pip install --python .package-venv/bin/python dist/*.whl
-      - run: .package-venv/bin/python scripts/check_package.py
-      - run: uv pip install --python .package-venv/bin/python --reinstall dist/*.tar.gz
-      - run: .package-venv/bin/python scripts/check_package.py
-      - uses: actions/upload-artifact@v4
+      - run: uv run --no-project --python 3.12 --with dist/*.whl scripts/check_package.py
+      - run: uv run --no-project --python 3.12 --with dist/*.tar.gz scripts/check_package.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: distributions
           path: dist/
@@ -43,7 +40,7 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: distributions
           path: dist/

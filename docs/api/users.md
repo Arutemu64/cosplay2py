@@ -201,8 +201,6 @@ Geographic identifier for a region.
 
 **Response:** Schema unknown.
 
-**SDK:** `users.get_region_geo_id()`.
-
 ## `/api/users/login`
 
 Submit a browser login form or start the login request used by the session service.
@@ -510,4 +508,3 @@ Unlink VK ID from the account.
 **Method:** POST.
 
 **Response:** Known JSON fields: `error`, `message`, `success`. Schema incomplete.
-

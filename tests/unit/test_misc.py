@@ -20,10 +20,11 @@ from cosplay2py.models import (
     TopicsAndRequests,
     VotingType,
 )
-from unit.conftest import TOPIC, ApiCall, json_response, make_client
+from unit.conftest import TOPIC, ApiCall, json_response
+
+pytestmark = pytest.mark.anyio
 
 
-@pytest.mark.anyio
 @pytest.mark.parametrize("page_type", list(PageType))
 async def test_get_page(api: ApiCall, page_type: PageType) -> None:
     seen: list[httpx2.Request] = []
@@ -61,7 +62,7 @@ async def test_get_page(api: ApiCall, page_type: PageType) -> None:
     assert json.loads(request.content) == {"page_id": "12"}
 
 
-def test_get_page_rejects_unknown_page_type() -> None:
+async def test_get_page_rejects_unknown_page_type(api: ApiCall) -> None:
     payload = {
         "id": 12,
         "type": "unknown_page_type",
@@ -70,14 +71,10 @@ def test_get_page_rejects_unknown_page_type() -> None:
         "title": "Festival rules",
         "right": 0,
     }
-    with (
-        make_client(lambda request: json_response(payload)) as client,
-        pytest.raises(APIResponseValidationError),
-    ):
-        client.pages.get(12)
+    with pytest.raises(APIResponseValidationError):
+        await api(lambda request: json_response(payload), lambda c: c.pages.get(12))
 
 
-@pytest.mark.anyio
 async def test_create_page(api: ApiCall) -> None:
     seen: list[httpx2.Request] = []
 
@@ -97,7 +94,6 @@ async def test_create_page(api: ApiCall) -> None:
     assert {r.url.path for r in seen} == {"/api/pages/add_page"}
 
 
-@pytest.mark.anyio
 @pytest.mark.parametrize(
     ("call", "path", "body"),
     [
@@ -136,12 +132,12 @@ async def test_page_writes(
     assert json.loads(request.content) == body
 
 
-def test_delete_non_empty_folder() -> None:
+async def test_delete_non_empty_folder(api: ApiCall) -> None:
     def handler(request: httpx2.Request) -> httpx2.Response:
         return httpx2.Response(400, text="Сначала удалите вложенные страницы.")
 
-    with make_client(handler) as client, pytest.raises(BadRequestError):
-        client.pages.delete(10)
+    with pytest.raises(BadRequestError):
+        await api(handler, lambda c: c.pages.delete(10))
 
 
 @pytest.mark.anyio
@@ -274,7 +270,30 @@ async def test_design_images(api: ApiCall, upload: bool) -> None:
     assert result == {2: "other.png"}
 
 
-def test_media_get_data() -> None:
+async def test_design_get(api: ApiCall) -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        assert request.method == "GET"
+        assert request.url.path == "/api/event_design/get"
+        return json_response(
+            {"design": {"custom_css": "body {}", "content_opacity": 0.9}}
+        )
+
+    design = await api(handler, lambda c: c.design.get())
+    assert design.custom_css == "body {}"
+    assert design.content_opacity == 0.9
+    assert design.model_extra == {}
+
+
+async def test_design_get_images(api: ApiCall) -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        assert request.method == "GET"
+        assert request.url.path == "/api/event_design/get_eventimages"
+        return json_response({"eventimages": {"1": "header.png"}})
+
+    assert await api(handler, lambda c: c.design.get_images()) == {1: "header.png"}
+
+
+async def test_media_get_data(api: ApiCall) -> None:
     payload = {
         "albums": [
             {
@@ -302,8 +321,9 @@ def test_media_get_data() -> None:
         ],
     }
 
-    with make_client(lambda request: json_response(payload)) as client:
-        data = client.media.get_data()
+    data = await api(
+        lambda request: json_response(payload), lambda c: c.media.get_data()
+    )
 
     (album,) = data.albums
     assert album.id == 678
@@ -314,7 +334,6 @@ def test_media_get_data() -> None:
     assert photo.model_extra == {}
 
 
-@pytest.mark.anyio
 @pytest.mark.parametrize(
     ("call", "path"),
     [
@@ -334,42 +353,60 @@ async def test_design_delete_logos(
     assert await api(handler, call) is None
 
 
-@pytest.mark.anyio
-async def test_etickets_endpoints(api: ApiCall) -> None:
-    def types_handler(request: httpx2.Request) -> httpx2.Response:
-        assert request.method == "POST"
+async def test_etickets_get_list(api: ApiCall) -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        assert request.method == "GET"
+        assert request.url.path == "/api/etickets/get_list"
+        return json_response({"etickets": [{"id": 10}]})
+
+    assert await api(handler, lambda c: c.etickets.get_list()) == [{"id": 10}]
+
+
+@pytest.mark.parametrize("i_can_buy", [False, True])
+async def test_etickets_get_types(api: ApiCall, i_can_buy: bool) -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         assert request.url.path == "/api/etickets/get_types"
-        assert json.loads(request.content) == {"i_can_buy": True}
+        if i_can_buy:
+            assert request.method == "POST"
+            assert json.loads(request.content) == {"i_can_buy": True}
+        else:
+            assert request.method == "GET"
         return json_response({"etickets_types": [{"id": 1}]})
 
-    assert await api(types_handler, lambda c: c.etickets.get_types(i_can_buy=True)) == [
+    assert await api(handler, lambda c: c.etickets.get_types(i_can_buy=i_can_buy)) == [
         {"id": 1}
     ]
 
-    def create_handler(request: httpx2.Request) -> httpx2.Response:
+
+async def test_etickets_create(api: ApiCall) -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         assert request.url.path == "/api/etickets/create_ticket"
         assert json.loads(request.content) == {"etickets_type_id": 3}
         return json_response({"message": "ok", "eticket_id": "10"})
 
-    assert await api(create_handler, lambda c: c.etickets.create(3)) == 10
+    assert await api(handler, lambda c: c.etickets.create(3)) == 10
 
-    def get_handler(request: httpx2.Request) -> httpx2.Response:
+
+async def test_etickets_get(api: ApiCall) -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         assert request.url.path == "/api/etickets/get_ticket"
         assert json.loads(request.content) == {"eticket_id": "10"}
         return json_response({"eticket": {"id": 10}})
 
-    assert await api(get_handler, lambda c: c.etickets.get(10)) == {
-        "eticket": {"id": 10}
-    }
+    assert await api(handler, lambda c: c.etickets.get(10)) == {"eticket": {"id": 10}}
 
-    def status_handler(request: httpx2.Request) -> httpx2.Response:
+
+async def test_etickets_get_status(api: ApiCall) -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         assert request.url.path == "/api/etickets/get_ticket_status"
         assert json.loads(request.content) == {"eticket_id": "10"}
         return json_response({"eticket_status": {"paid": 1}})
 
-    assert await api(status_handler, lambda c: c.etickets.get_status(10)) == {"paid": 1}
+    assert await api(handler, lambda c: c.etickets.get_status(10)) == {"paid": 1}
 
-    def save_handler(request: httpx2.Request) -> httpx2.Response:
+
+async def test_etickets_save_field(api: ApiCall) -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         assert request.url.path == "/api/etickets/save_eticket_field"
         assert json.loads(request.content) == {
             "eticket_id": 10,
@@ -378,41 +415,69 @@ async def test_etickets_endpoints(api: ApiCall) -> None:
         }
         return json_response({"message": "ok", "eticket": {"id": 10, "paid": 1}})
 
-    assert await api(save_handler, lambda c: c.etickets.save_field(10, "paid", 1)) == {
+    assert await api(handler, lambda c: c.etickets.save_field(10, "paid", 1)) == {
         "id": 10,
         "paid": 1,
     }
 
 
-@pytest.mark.anyio
-async def test_tickets_endpoints(api: ApiCall) -> None:
-    def clear_handler(request: httpx2.Request) -> httpx2.Response:
+async def test_tickets_statistics(api: ApiCall) -> None:
+    def stat_handler(request: httpx2.Request) -> httpx2.Response:
+        assert request.method == "GET"
+        assert request.url.path == "/api/tickets/get_statistic"
+        return json_response({"active_count": 10, "test_tickets": []})
+
+    stat = await api(stat_handler, lambda c: c.tickets.get_statistic())
+    assert stat.active_count == 10
+
+    def voting_stat_handler(request: httpx2.Request) -> httpx2.Response:
+        assert request.method == "GET"
+        assert request.url.path == "/api/tickets/get_voting_statistics"
+        return json_response({"votes_accepted": 5, "active_tickets": 3})
+
+    voting_stat = await api(
+        voting_stat_handler, lambda c: c.tickets.get_voting_statistics()
+    )
+    assert voting_stat.votes_accepted == 5
+    assert voting_stat.active_tickets == 3
+
+
+async def test_tickets_clear_votes(api: ApiCall) -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         assert request.method == "POST"
         assert request.url.path == "/api/tickets/clear_votes"
         return json_response({"message": "ok"})
 
-    assert await api(clear_handler, lambda c: c.tickets.clear_votes()) is None
+    assert await api(handler, lambda c: c.tickets.clear_votes()) is None
 
-    def add_prize_handler(request: httpx2.Request) -> httpx2.Response:
-        assert request.url.path == "/api/tickets/prize_add"
-        assert json.loads(request.content) == {"title": "Mug", "quantity": 5}
-        return json_response({"prizes": [{"id": 1}], "prize_step_recommend": 10})
 
-    assert await api(add_prize_handler, lambda c: c.tickets.add_prize("Mug", 5)) == {
-        "prizes": [{"id": 1}],
-        "prize_step_recommend": 10,
-    }
+@pytest.mark.parametrize(
+    ("call", "path", "body"),
+    [
+        (
+            lambda c: c.tickets.add_prize("Mug", 5),
+            "prize_add",
+            {"title": "Mug", "quantity": 5},
+        ),
+        (
+            lambda c: c.tickets.delete_prize(1),
+            "prize_del",
+            {"prize_id": 1},
+        ),
+    ],
+)
+async def test_tickets_prizes(
+    api: ApiCall, call: Callable[[Any], Any], path: str, body: dict[str, object]
+) -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        assert request.url.path == f"/api/tickets/{path}"
+        assert json.loads(request.content) == body
+        return json_response({"prizes": [], "prize_step_recommend": 10})
 
-    def del_prize_handler(request: httpx2.Request) -> httpx2.Response:
-        assert request.url.path == "/api/tickets/prize_del"
-        assert json.loads(request.content) == {"prize_id": 1}
-        return json_response({"prizes": [], "prize_step_recommend": 0})
+    assert await api(handler, call) == {"prizes": [], "prize_step_recommend": 10}
 
-    assert await api(del_prize_handler, lambda c: c.tickets.delete_prize(1)) == {
-        "prizes": [],
-        "prize_step_recommend": 0,
-    }
 
+async def test_tickets_get_ticket_and_cards(api: ApiCall) -> None:
     def ticket_handler(request: httpx2.Request) -> httpx2.Response:
         assert request.method == "GET"
         assert request.url.path == "/api/tickets/get_ticket"
@@ -422,6 +487,15 @@ async def test_tickets_endpoints(api: ApiCall) -> None:
         "ticket_number": "123456"
     }
 
+    def cards_handler(request: httpx2.Request) -> httpx2.Response:
+        assert request.method == "GET"
+        assert request.url.path == "/api/tickets/get_cards"
+        return json_response({"requests": [{"id": 42}]})
+
+    assert await api(cards_handler, lambda c: c.tickets.get_cards()) == [{"id": 42}]
+
+
+async def test_tickets_voting_flow(api: ApiCall) -> None:
     def voting_data_handler(request: httpx2.Request) -> httpx2.Response:
         assert request.url.path == "/api/tickets/get_voting_data"
         assert json.loads(request.content) == {
@@ -434,13 +508,6 @@ async def test_tickets_endpoints(api: ApiCall) -> None:
         voting_data_handler,
         lambda c: c.tickets.get_voting_data("123456", voting_type=VotingType.TEST),
     ) == {"topics": [], "requests": []}
-
-    def cards_handler(request: httpx2.Request) -> httpx2.Response:
-        assert request.method == "GET"
-        assert request.url.path == "/api/tickets/get_cards"
-        return json_response({"requests": [{"id": 42}]})
-
-    assert await api(cards_handler, lambda c: c.tickets.get_cards()) == [{"id": 42}]
 
     def select_handler(request: httpx2.Request) -> httpx2.Response:
         assert request.url.path == "/api/tickets/select_winner"
@@ -462,35 +529,38 @@ async def test_tickets_endpoints(api: ApiCall) -> None:
 @pytest.mark.parametrize(
     ("bad_type", "exc"), [(True, TypeError), (0, ValueError), (3, ValueError)]
 )
-def test_create_tickets_rejects_invalid_ticket_type(
-    bad_type: Any, exc: type[Exception]
+async def test_create_tickets_rejects_invalid_ticket_type(
+    api: ApiCall, bad_type: Any, exc: type[Exception]
 ) -> None:
     def handler(request: httpx2.Request) -> httpx2.Response:
         raise AssertionError("no request expected")
 
-    with make_client(handler) as client, pytest.raises(exc):
-        client.tickets.create(10, ticket_type=bad_type)
+    with pytest.raises(exc):
+        await api(handler, lambda c: c.tickets.create(10, ticket_type=bad_type))
 
 
-@pytest.mark.anyio
-async def test_cards_endpoints(api: ApiCall) -> None:
-    def topics_cards_handler(request: httpx2.Request) -> httpx2.Response:
+async def test_cards_get_topics_and_cards_preview(api: ApiCall) -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         assert request.method == "GET"
         assert request.url.path == "/api/cards/get_topics_and_cards"
         assert dict(request.url.params) == {"preview": "1"}
         return json_response({"topics": [], "requests": []})
 
     result = await api(
-        topics_cards_handler,
+        handler,
         lambda c: c.cards.get_topics_and_cards(preview=True),
     )
     assert result.topics == []
     assert result.requests == []
 
-    def card_handler(request: httpx2.Request) -> httpx2.Response:
+
+@pytest.mark.parametrize("preview", [False, True])
+async def test_cards_get_card(api: ApiCall, preview: bool) -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         assert request.method == "GET"
         assert request.url.path == "/api/cards/get_card"
-        assert dict(request.url.params) == {"request_id": "42", "preview": "1"}
+        expected_params = {"request_id": "42", **({"preview": "1"} if preview else {})}
+        assert dict(request.url.params) == expected_params
         return json_response(
             {
                 "message": "ok",
@@ -529,7 +599,7 @@ async def test_cards_endpoints(api: ApiCall) -> None:
             }
         )
 
-    card = await api(card_handler, lambda c: c.cards.get_card(42, preview=True))
+    card = await api(handler, lambda c: c.cards.get_card(42, preview=preview))
     assert card.request.id == 42
     assert card.sections[0].image_section is False
     assert card.sections[0].user_section is True
@@ -539,7 +609,9 @@ async def test_cards_endpoints(api: ApiCall) -> None:
     assert card.request_sections == card.values == []
     assert card.model_extra == {}
 
-    def topics_reqs_handler(request: httpx2.Request) -> httpx2.Response:
+
+async def test_cards_get_topics_and_requests(api: ApiCall) -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         assert request.method == "GET"
         assert request.url.path == "/api/cards/get_topics_and_requests"
         assert dict(request.url.params) == {}
@@ -574,9 +646,7 @@ async def test_cards_endpoints(api: ApiCall) -> None:
             }
         )
 
-    listing = await api(
-        topics_reqs_handler, lambda c: c.cards.get_topics_and_requests()
-    )
+    listing = await api(handler, lambda c: c.cards.get_topics_and_requests())
     assert isinstance(listing, TopicsAndRequests)
     assert listing.topics[0].url_code == "solo"
     assert listing.requests[0].status is RequestStatus.APPROVED
@@ -586,7 +656,15 @@ async def test_cards_endpoints(api: ApiCall) -> None:
     assert listing.requests[1].voting_title is None
     assert listing.model_extra == listing.requests[0].model_extra == {}
 
-    def req_handler(request: httpx2.Request) -> httpx2.Response:
+    empty = await api(
+        lambda request: json_response({"topics": [], "requests": []}),
+        lambda c: c.cards.get_topics_and_requests(),
+    )
+    assert empty.topics == empty.requests == []
+
+
+async def test_cards_get_request(api: ApiCall) -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         assert request.method == "GET"
         assert request.url.path == "/api/cards/get_request"
         assert dict(request.url.params) == {"request_id": "42"}
@@ -628,7 +706,7 @@ async def test_cards_endpoints(api: ApiCall) -> None:
             }
         )
 
-    detail = await api(req_handler, lambda c: c.cards.get_request(42))
+    detail = await api(handler, lambda c: c.cards.get_request(42))
     assert isinstance(detail, PublicRequestDetails)
     assert detail.request.er is EventRole.ORG
     assert detail.request.edit_enabled is False
@@ -638,14 +716,7 @@ async def test_cards_endpoints(api: ApiCall) -> None:
     assert detail.users[0].image_update_time == datetime.fromtimestamp(1700000000, UTC)
     assert detail.model_extra == detail.request.model_extra == {}
 
-    def empty_handler(request: httpx2.Request) -> httpx2.Response:
-        return json_response({"topics": [], "requests": []})
 
-    empty = await api(empty_handler, lambda c: c.cards.get_topics_and_requests())
-    assert empty.topics == empty.requests == []
-
-
-@pytest.mark.anyio
 async def test_card_listing_types(api: ApiCall) -> None:
     def handler(request: httpx2.Request) -> httpx2.Response:
         assert dict(request.url.params) == {}

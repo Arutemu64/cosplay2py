@@ -1,11 +1,16 @@
 import json
+from datetime import UTC, datetime
+from typing import Any
 
 import httpx2
+import pytest
 
-from unit.conftest import json_response, make_client
+from unit.conftest import ApiCall, json_response
+
+pytestmark = pytest.mark.anyio
 
 
-def test_search() -> None:
+async def test_search(api: ApiCall) -> None:
     seen: list[httpx2.Request] = []
     user = {
         "id": 7,
@@ -20,8 +25,7 @@ def test_search() -> None:
         seen.append(request)
         return json_response({"users": [user]})
 
-    with make_client(handler) as client:
-        (parsed,) = client.users.search("nic")
+    (parsed,) = await api(handler, lambda c: c.users.search("nic"))
 
     (request,) = seen
     assert request.url.path == "/api/users/search"
@@ -31,10 +35,6 @@ def test_search() -> None:
     assert parsed.model_extra == {}
 
 
-import pytest
-
-
-@pytest.mark.anyio
 @pytest.mark.parametrize(
     ("scope", "selector"),
     [
@@ -45,8 +45,8 @@ import pytest
         ("city", {"geo_id": 179}),
     ],
 )
-async def test_ratings(api, scope, selector):
-    def handler(request):
+async def test_ratings(api: ApiCall, scope: str, selector: dict[str, Any]) -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         assert request.url.path == f"/api/users/ratings_{scope}"
         expected = {**selector, "category": "total"}
         if "geo_id" in expected:
@@ -61,11 +61,8 @@ async def test_ratings(api, scope, selector):
     assert result.userlist == [] if scope == "city" else result.topusers == []
 
 
-@pytest.mark.anyio
-async def test_city_rating_details(api):
-    from datetime import UTC, datetime
-
-    def handler(request):
+async def test_city_rating_details(api: ApiCall) -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         return json_response(
             {
                 "message": "ok",
@@ -83,8 +80,11 @@ async def test_city_rating_details(api):
         )
 
     result = await api(handler, lambda c: c.users.ratings_city(123))
+    assert result.geo is not None
     assert result.geo.location_lat == 55.5
+    assert result.region is not None
     assert result.region.region_id == 12
+    assert result.userlist is not None
     assert result.userlist[0].rating == 42
     assert result.userlist[0].image_update_time == datetime.fromtimestamp(
         1713798357, UTC
@@ -92,9 +92,8 @@ async def test_city_rating_details(api):
     assert result.model_extra == {}
 
 
-@pytest.mark.anyio
-async def test_country_rating_groups(api):
-    def handler(request):
+async def test_country_rating_groups(api: ApiCall) -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         return json_response(
             {
                 "regions": None,
@@ -111,5 +110,7 @@ async def test_country_rating_groups(api):
 
     result = await api(handler, lambda c: c.users.ratings_country("RU"))
     assert result.regions is None
+    assert result.areas is not None
     assert result.areas[0].sum_rating == "1234"
+    assert result.areas[0].topusers is not None
     assert result.areas[0].topusers[0].rating == 42

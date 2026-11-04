@@ -12,9 +12,10 @@ from cosplay2py.models import (
     FeedbackMark,
     RequestSearchResult,
     RequestStatus,
+    TopicField,
     TopicFieldType,
 )
-from unit.conftest import TOPIC, ApiCall, json_response, make_client
+from unit.conftest import TOPIC, ApiCall, json_response
 
 pytestmark = pytest.mark.anyio
 
@@ -109,7 +110,7 @@ async def test_get(api: ApiCall, status: str, field_type: TopicFieldType) -> Non
     assert details.values_by_field() == {"character": ["A"]}
 
 
-def test_get_rejects_unknown_field_type() -> None:
+async def test_get_rejects_unknown_field_type(api: ApiCall) -> None:
     payload = {
         "message": "ok",
         "request": {
@@ -137,11 +138,22 @@ def test_get_rejects_unknown_field_type() -> None:
         "reqvalues": [],
     }
 
-    with (
-        make_client(lambda request: json_response(payload)) as client,
-        pytest.raises(APIResponseValidationError),
-    ):
-        client.requests.get(5)
+    with pytest.raises(APIResponseValidationError):
+        await api(lambda request: json_response(payload), lambda c: c.requests.get(5))
+
+
+@pytest.mark.parametrize("data", [None, "", "not-json", '{"a": 1}'])
+def test_topic_field_options_empty_when_not_json_list(data: str | None) -> None:
+    field = TopicField(
+        id=1,
+        section_id=1,
+        title="Field",
+        type=TopicFieldType.TEXT,
+        order=1,
+        data=data,
+        visible_to_all=True,
+    )
+    assert field.options == []
 
 
 @pytest.mark.parametrize(
@@ -257,16 +269,20 @@ async def test_save_field(
 
 
 @pytest.mark.parametrize(("value", "sent"), [(8, 8), (None, None)])
-def test_save_field_user_or_empty(value: int | None, sent: object) -> None:
+async def test_save_field_user_or_empty(
+    api: ApiCall, value: int | None, sent: object
+) -> None:
     def handler(request: httpx2.Request) -> httpx2.Response:
         assert json.loads(request.content)["data"] == sent
         return json_response({"message": "ok", "id": "7"})
 
-    with make_client(handler) as client:
-        assert client.requests.save_field(42, 3, 5, value, value_id=7) == 7
+    assert (
+        await api(handler, lambda c: c.requests.save_field(42, 3, 5, value, value_id=7))
+        == 7
+    )
 
 
-def test_get_value_history() -> None:
+async def test_get_value_history(api: ApiCall) -> None:
     seen: list[httpx2.Request] = []
     change = {
         "update_time": "2026-10-28 18:27:30",
@@ -281,8 +297,7 @@ def test_get_value_history() -> None:
         seen.append(request)
         return json_response({"message": "ok", "value_history": [change]})
 
-    with make_client(handler) as client:
-        (parsed,) = client.requests.get_value_history(42, 9)
+    (parsed,) = await api(handler, lambda c: c.requests.get_value_history(42, 9))
 
     (request,) = seen
     assert request.url.path == "/api/requests/get_value_history"
@@ -374,7 +389,7 @@ async def test_create_section(api: ApiCall) -> None:
     }
 
 
-def test_change_topic_conflict() -> None:
+async def test_change_topic_conflict(api: ApiCall) -> None:
     seen: list[httpx2.Request] = []
     section = {
         "id": 11,
@@ -410,8 +425,7 @@ def test_change_topic_conflict() -> None:
             }
         )
 
-    with make_client(handler) as client:
-        change = client.requests.change_topic(42, 8)
+    change = await api(handler, lambda c: c.requests.change_topic(42, 8))
 
     assert not change.moved
     assert [s.id for s in change.error_sections] == [11]
@@ -440,7 +454,11 @@ async def test_change_topic_force(api: ApiCall) -> None:
     }
 
 
-def test_get_comments() -> None:
+@pytest.mark.parametrize(
+    ("method", "path"),
+    [("get_comments", "get_comments"), ("get_org_comments", "get_orgcomments")],
+)
+async def test_get_comments(api: ApiCall, method: str, path: str) -> None:
     comment = {
         "id": 1,
         "user_id": 2,
@@ -454,10 +472,11 @@ def test_get_comments() -> None:
     }
 
     def handler(request: httpx2.Request) -> httpx2.Response:
+        assert request.url.path == f"/api/requests/{path}"
+        assert json.loads(request.content) == {"request_id": "42"}
         return json_response({"message": "ok", "comments": [comment]})
 
-    with make_client(handler) as client:
-        (parsed,) = client.requests.get_comments(42)
+    (parsed,) = await api(handler, lambda c: getattr(c.requests, method)(42))
 
     assert parsed.creation_time == datetime(2026, 10, 28, 16, 47, 50, tzinfo=UTC)
     # Naive by design: the site shows local time without an offset.
@@ -465,6 +484,27 @@ def test_get_comments() -> None:
     assert parsed.email is True
     assert parsed.sms is False
     assert parsed.model_extra == {}
+
+
+async def test_get_user(api: ApiCall) -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        assert request.method == "POST"
+        assert request.url.path == "/api/requests/get_user"
+        assert json.loads(request.content) == {"user_id": "7", "request_id": 42}
+        return json_response(
+            {
+                "user": {"id": 7, "user_id": 7, "title": "Nick", "age": 20},
+                "another_requests": [
+                    {"request_id": 43, "status": "approved", "card": "S2"}
+                ],
+                "feedbacks": [],
+            }
+        )
+
+    info = await api(handler, lambda c: c.requests.get_user(42, 7))
+    assert info.user.id == 7
+    assert info.user.age == 20
+    assert info.another_requests[0].status is RequestStatus.APPROVED
 
 
 @pytest.mark.anyio
@@ -552,7 +592,7 @@ async def test_upload_file(api: ApiCall, value_id: int | None, sent: bytes) -> N
     assert uploaded.value.model_extra == {}
 
 
-async def test_generate_voting_number_and_search(api: ApiCall) -> None:
+async def test_generate_voting_number(api: ApiCall) -> None:
     def num_handler(request: httpx2.Request) -> httpx2.Response:
         assert request.url.path == "/api/requests/generate_voting_num"
         assert json.loads(request.content) == {"request_id": 42}
@@ -560,13 +600,20 @@ async def test_generate_voting_number_and_search(api: ApiCall) -> None:
 
     assert await api(num_handler, lambda c: c.requests.generate_voting_number(42)) == 77
 
+
+@pytest.mark.parametrize(
+    ("voting_number", "voting_title"), [(77, "Example performance"), (None, None)]
+)
+async def test_search(
+    api: ApiCall, voting_number: int | None, voting_title: str | None
+) -> None:
     payload = {
         "id": 42,
         "topic_id": 7,
         "number": 3,
         "status": "approved",
-        "voting_number": 77,
-        "voting_title": "Example performance",
+        "voting_number": voting_number,
+        "voting_title": voting_title,
         "user_title": "Example participant",
         "city": "Example city",
         "card_code": "example",
@@ -635,9 +682,13 @@ async def test_feedbacks(api: ApiCall, action: str) -> None:
 @pytest.mark.parametrize(
     ("bad_mark", "exc"), [(True, TypeError), (2, ValueError), (-2, ValueError)]
 )
-def test_add_feedback_rejects_invalid_mark(bad_mark: Any, exc: type[Exception]) -> None:
+async def test_add_feedback_rejects_invalid_mark(
+    api: ApiCall, bad_mark: Any, exc: type[Exception]
+) -> None:
     def handler(request: httpx2.Request) -> httpx2.Response:
         raise AssertionError("no request expected")
 
-    with make_client(handler) as client, pytest.raises(exc):
-        client.requests.add_feedback(42, 3, bad_mark, "Example")
+    with pytest.raises(exc):
+        await api(
+            handler, lambda c: c.requests.add_feedback(42, 3, bad_mark, "Example")
+        )

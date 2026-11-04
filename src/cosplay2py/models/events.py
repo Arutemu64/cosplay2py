@@ -294,7 +294,8 @@ class TopicParticipants(Cosplay2Model):
     topic_name: str
     # null when nobody has registered in the topic.
     participants: Annotated[
-        list[RegistrationParticipant], BeforeValidator(lambda v: v or [])
+        list[RegistrationParticipant],
+        BeforeValidator(lambda v: [] if v is None else v),
     ] = Field(default_factory=list)
 
 
@@ -319,8 +320,10 @@ class EventWinner(Cosplay2Model):
     """Identifier of the winning request."""
     topic_id: int
     number: int
-    voting_number: int
-    voting_title: str
+    voting_number: int | None = None
+    """Voting number; the API may return ``null``."""
+    voting_title: str | None = None
+    """Voting title; the API may return ``null``."""
     win: int
     """Award placement, as returned by the API."""
     win_title: str | None = None

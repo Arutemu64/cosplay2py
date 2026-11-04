@@ -308,6 +308,8 @@ Assign and return the next voting number for a request.
 
 **Response:** Object with `voting_number`: integer.
 
+Generating for a request that already has a voting number may fail with HTTP 500.
+
 **SDK:** `requests.generate_voting_number()`.
 
 ## `/api/requests/get`

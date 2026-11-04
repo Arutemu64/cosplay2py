@@ -1,5 +1,3 @@
-from typing import Any
-
 from cosplay2py._base_client import Endpoint
 from cosplay2py.models import RatingCategory, UserSearchResult
 from cosplay2py.models.users import (
@@ -104,18 +102,6 @@ class Users(SyncResource):
             )
         )
 
-    def get_region_geo_id(self, region: str, country_code: str) -> Any:
-        """Geographic identifier for a region."""
-        return self._request(
-            Endpoint(
-                "POST",
-                "/api/users/get_region_geo_id",
-                Any,
-                json={"region": region, "country_code": country_code},
-                idempotent=True,
-            )
-        )
-
 
 class AsyncUsers(AsyncResource):
     async def search(self, query: str) -> list[UserSearchResult]:
@@ -194,18 +180,6 @@ class AsyncUsers(AsyncResource):
                 "/api/users/ratings_city",
                 CityRatings,
                 json={"category": RatingCategory(category), "geo_id": str(geo_id)},
-                idempotent=True,
-            )
-        )
-
-    async def get_region_geo_id(self, region: str, country_code: str) -> Any:
-        """Geographic identifier for a region."""
-        return await self._request(
-            Endpoint(
-                "POST",
-                "/api/users/get_region_geo_id",
-                Any,
-                json={"region": region, "country_code": country_code},
                 idempotent=True,
             )
         )

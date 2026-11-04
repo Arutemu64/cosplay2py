@@ -27,4 +27,3 @@ Prepare VK ID browser authorization and return the provider navigation URL.
 **Response:** Known JSON fields: `auth_url`, `error`, `state`, `success`. Schema incomplete.
 
 **Notes:** Login sends URL-encoded form data; the profile linking controller sends JSON. The returned state may replace the requested state before navigation to auth_url.
-

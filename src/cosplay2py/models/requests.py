@@ -229,9 +229,18 @@ class RequestDetails(Cosplay2Model):
     author: UserBrief
     topic: Topic
     sections: list[TopicSection]
+    """Form section definitions for ``topic``; referenced by
+    ``fields[].section_id`` and ``request_sections[].topic_section_id``."""
     fields: list[TopicField]
+    """Form field definitions for ``topic``; referenced by
+    ``values[].topic_field_id``."""
     request_sections: list[RequestSection] = Field(alias="reqsections")
+    """Filled section instances in this request (Wire key ``reqsections``);
+    join ``topic_section_id`` to ``sections[].id``."""
     values: list[RequestValue] = Field(alias="reqvalues")
+    """Filled field values in this request (Wire key ``reqvalues``); join
+    ``topic_field_id`` to ``fields[].id`` and ``request_section_id`` to
+    ``request_sections[].id``."""
     scores: list[RequestScore] = Field(default_factory=list)
     edit_enabled: bool | None = Field(default=None, alias="editEnabled")
     friendedit_enabled: bool | None = Field(default=None, alias="friendeditEnabled")
@@ -330,8 +339,10 @@ class RequestSearchResult(Cosplay2Model):
     topic_id: int
     number: int
     status: RequestStatus
-    voting_number: int
-    voting_title: str
+    voting_number: int | None = None
+    """Voting number; the API may return ``null``."""
+    voting_title: str | None = None
+    """Voting title; the API may return ``null``."""
     user_title: str
     city: str
     card_code: str

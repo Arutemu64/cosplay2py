@@ -25,4 +25,3 @@ Submit frontend ticket error diagnostics; the caller sets module, entity and tra
 **Response:** Response schema unknown; the success callback does not inspect the body.
 
 **Notes:** The controller passes `body` in its AngularJS HTTP config instead of `data`; the actual transmitted diagnostics payload is unverified.
-

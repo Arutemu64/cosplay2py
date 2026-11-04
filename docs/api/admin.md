@@ -65,4 +65,3 @@ List new event submissions for moderation.
 **Method:** GET.
 
 **Response:** Known JSON fields: `new_events`. Schema incomplete.
-

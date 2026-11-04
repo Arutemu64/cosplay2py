@@ -96,7 +96,6 @@ from cosplay2py.models.topics import (
 )
 from cosplay2py.models.users import (
     AreaRatings,
-    CityGeodata,
     CityRatings,
     CountryRatings,
     GlobalRatings,
@@ -121,7 +120,6 @@ __all__ = [
     "CardRequest",
     "CardTopic",
     "CardUser",
-    "CityGeodata",
     "CityRatings",
     "Comment",
     "Cosplay2Model",

@@ -21,11 +21,9 @@ Geographic data for a city name.
 |---|---|---|---|
 | `city` | JSON | string | City name. |
 
-**Response:** Object with `geodata`: [CityGeodata](../api-schemas.md#citygeodata) object.
+**Response:** Object with `geodata`: [RatingGeo](../api-schemas.md#ratinggeo) object. Cities not present in the server's cached table trigger an upstream geocoder lookup that can fail with HTTP 500.
 
-**Example:** `{"city": "example"}`
-
-**SDK:** `geo.code_city()`.
+**Example:** `{"city": "Москва"}`
 
 ## `/api/geo/resolve_for_map`
 
@@ -38,4 +36,3 @@ Resolve the unique city names from the event listing into map places keyed by ci
 | `cities` | JSON | array of strings | Unique, nonempty city names from the event listing. |
 
 **Response:** Object with `places`, a mapping indexed by city name. Coordinate field types are unverified.
-

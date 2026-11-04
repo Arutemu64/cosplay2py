@@ -120,8 +120,6 @@ Create a festival from the portal's creation form.
 
 **Response:** Object with `new_event_id`: integer.
 
-**SDK:** `events.create_festival()`.
-
 ## `/api/events/create_festival_logo`
 
 Upload a creation-form logo and return its temporary filename.
@@ -135,8 +133,6 @@ Upload a creation-form logo and return its temporary filename.
 **Request content type:** `multipart/form-data`.
 
 **Response:** Object with `logofilename`: string.
-
-**SDK:** `events.create_festival_logo()`.
 
 ## `/api/events/delete_curator`
 
@@ -186,8 +182,6 @@ Portal events for the selected year.
 | `active_year` | JSON | string | Year selector from the portal route. |
 
 **Response:** Schema unknown.
-
-**SDK:** `events.filter_list()`.
 
 ## `/api/events/get/{id}`
 
@@ -334,8 +328,6 @@ Portal event types.
 **Method:** GET. **Access:** Portal UI; event-token support was observed for the listing/type reads only.
 
 **Response:** Schema unknown.
-
-**SDK:** `events.get_types()`.
 
 ## `/api/events/save_newevents_field`
 

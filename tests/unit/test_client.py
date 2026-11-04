@@ -2,9 +2,15 @@
 
 import inspect
 import json
+import logging
+import traceback
 from collections.abc import Callable, Iterator
+from datetime import UTC, datetime, timedelta
+from email.utils import format_datetime
+from types import SimpleNamespace
 from typing import Any
 
+import anyio
 import httpx2
 import pytest
 
@@ -26,6 +32,7 @@ from cosplay2py import (
 from cosplay2py.models import BlankId
 from unit.conftest import (
     REAL_RETRY_DELAY,
+    ApiCall,
     json_response,
     make_async_client,
     make_client,
@@ -60,6 +67,11 @@ class TestConfiguration:
                 api_key="k",
                 api_secret="s",
             )
+
+    @pytest.mark.parametrize("subdomain", ["-fest", "fest-", "fest.bad", "a" * 64])
+    def test_rejects_invalid_subdomain(self, subdomain: str) -> None:
+        with pytest.raises(Cosplay2Error, match="Invalid event subdomain"):
+            Cosplay2(subdomain=subdomain, api_key="k", api_secret="s")
 
     def test_reads_environment(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("COSPLAY2_API_KEY", "k")
@@ -210,6 +222,14 @@ class TestErrors:
         with make_client(handler) as client, pytest.raises(APIResponseValidationError):
             client.events.get_state()
 
+    @pytest.mark.parametrize("payload", [[], {"wrong_key": {}}])
+    def test_missing_wrapper_key(self, payload: Any) -> None:
+        with (
+            make_client(lambda r: json_response(payload)) as client,
+            pytest.raises(APIResponseValidationError, match="'state'"),
+        ):
+            client.events.get_state()
+
     def test_unexpected_shape(self) -> None:
         def handler(request: httpx2.Request) -> httpx2.Response:
             return json_response({"state": {"topics_count": "many"}})
@@ -346,10 +366,11 @@ class TestRetryDelay:
     def test_exponential_backoff_with_jitter(
         self, client: Cosplay2, attempt: int, base: float
     ) -> None:
-        # Malformed dates fall back to backoff.
+        # Malformed or timezone-less dates fall back to backoff.
         causes = [
             httpx2.Response(503),
             httpx2.Response(503, headers={"Retry-After": "Wed, 21 Oct 2026"}),
+            httpx2.Response(503, headers={"Retry-After": "Wed, 21 Oct 2026 07:28:00"}),
             httpx2.ConnectError("boom"),
         ]
         for cause in causes:
@@ -359,10 +380,10 @@ class TestRetryDelay:
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("status", [429, 503])
-async def test_writes_never_retry_responses(api, status):
-    calls = []
+async def test_writes_never_retry_responses(api: ApiCall, status: int) -> None:
+    calls: list[httpx2.Request] = []
 
-    def handler(request):
+    def handler(request: httpx2.Request) -> httpx2.Response:
         calls.append(request)
         return json_response({}, status_code=status)
 
@@ -373,10 +394,12 @@ async def test_writes_never_retry_responses(api, status):
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("error", [httpx2.ReadTimeout, httpx2.WriteTimeout])
-async def test_write_timeouts_both_clients(api, error):
-    calls = []
+async def test_write_timeouts_both_clients(
+    api: ApiCall, error: type[httpx2.TimeoutException]
+) -> None:
+    calls: list[httpx2.Request] = []
 
-    def handler(request):
+    def handler(request: httpx2.Request) -> httpx2.Response:
         calls.append(request)
         raise error("private-input", request=request)
 
@@ -387,10 +410,10 @@ async def test_write_timeouts_both_clients(api, error):
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("asynchronous", [False, True])
-async def test_foreign_client_redirects_disabled(asynchronous):
-    calls = []
+async def test_foreign_client_redirects_disabled(asynchronous: bool) -> None:
+    calls: list[httpx2.Request] = []
 
-    def handler(request):
+    def handler(request: httpx2.Request) -> httpx2.Response:
         calls.append(request)
         return httpx2.Response(302, headers={"location": "https://other.example/"})
 
@@ -416,7 +439,7 @@ async def test_foreign_client_redirects_disabled(asynchronous):
 
 
 @pytest.mark.parametrize("value", [-1, True, 1.5, "2"])
-def test_invalid_retry_count(value):
+def test_invalid_retry_count(value: Any) -> None:
     with pytest.raises(Cosplay2Error, match="nonnegative integer"):
         Cosplay2(
             subdomain="fest", api_key="key", api_secret="secret", max_retries=value
@@ -433,7 +456,7 @@ def test_invalid_retry_count(value):
         "https://example.org:invalid",
     ],
 )
-def test_invalid_url_does_not_echo_input(url):
+def test_invalid_url_does_not_echo_input(url: str) -> None:
     with pytest.raises(Cosplay2Error) as info:
         Cosplay2(base_url=url, api_key="key", api_secret="secret")
     assert "private-input" not in str(info.value)
@@ -447,9 +470,9 @@ def test_invalid_url_does_not_echo_input(url):
         ({"state": {"topics_count": "private-input"}}, 200),
     ],
 )
-async def test_safe_diagnostics(api, payload, status):
-    import traceback
-
+async def test_safe_diagnostics(
+    api: ApiCall, payload: dict[str, Any], status: int
+) -> None:
     with pytest.raises(Cosplay2Error) as info:
         await api(
             lambda r: json_response(payload, status), lambda c: c.events.get_state()
@@ -460,10 +483,10 @@ async def test_safe_diagnostics(api, payload, status):
 
 
 @pytest.mark.anyio
-async def test_retry_after_over_budget(api):
-    calls = []
+async def test_retry_after_over_budget(api: ApiCall) -> None:
+    calls: list[httpx2.Request] = []
 
-    def handler(request):
+    def handler(request: httpx2.Request) -> httpx2.Response:
         calls.append(request)
         return httpx2.Response(429, headers={"Retry-After": "120"})
 
@@ -473,30 +496,30 @@ async def test_retry_after_over_budget(api):
 
 
 @pytest.mark.parametrize("seconds", [-10, 10, 120])
-def test_retry_after_date(seconds):
-    from datetime import UTC, datetime, timedelta
-    from email.utils import format_datetime
-
+def test_retry_after_date(monkeypatch: pytest.MonkeyPatch, seconds: int) -> None:
+    fixed_now = datetime(2026, 1, 15, 10, 0, 0, tzinfo=UTC)
+    monkeypatch.setattr(
+        "cosplay2py._base_client.datetime",
+        SimpleNamespace(now=lambda tz=None: fixed_now),
+    )
     response = httpx2.Response(
         429,
         headers={
-            "Retry-After": format_datetime(
-                datetime.now(UTC) + timedelta(seconds=seconds)
-            )
+            "Retry-After": format_datetime(fixed_now + timedelta(seconds=seconds))
         },
     )
     with make_client(lambda r: response) as client:
         delay = REAL_RETRY_DELAY(client, 0, response)
-    assert max(0, seconds - 1) <= delay <= max(0, seconds)
+    assert delay == max(0.0, float(seconds))
 
 
 @pytest.mark.anyio
-async def test_async_cancellation_during_backoff(monkeypatch):
-    import anyio
+async def test_async_cancellation_during_backoff(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[httpx2.Request] = []
 
-    calls = []
-
-    def handler(request):
+    def handler(request: httpx2.Request) -> httpx2.Response:
         calls.append(request)
         return httpx2.Response(503)
 
@@ -511,10 +534,10 @@ async def test_async_cancellation_during_backoff(monkeypatch):
 
 
 @pytest.mark.anyio
-async def test_upload_replay_after_connect_failure(api):
-    bodies = []
+async def test_upload_replay_after_connect_failure(api: ApiCall) -> None:
+    bodies: list[bytes] = []
 
-    def handler(request):
+    def handler(request: httpx2.Request) -> httpx2.Response:
         bodies.append(request.content)
         if len(bodies) == 1:
             raise httpx2.ConnectError("failed", request=request)
@@ -530,9 +553,7 @@ async def test_upload_replay_after_connect_failure(api):
     assert b"image-content" in bodies[1]
 
 
-def test_retry_log_omits_exception_text(caplog):
-    import logging
-
+def test_retry_log_omits_exception_text(caplog: pytest.LogCaptureFixture) -> None:
     with (
         make_client(lambda r: json_response({})) as client,
         caplog.at_level(logging.INFO, logger="cosplay2py"),
@@ -542,8 +563,8 @@ def test_retry_log_omits_exception_text(caplog):
     assert "ConnectError" in caplog.text
 
 
-def test_foreign_client_headers_and_timeout():
-    def handler(request):
+def test_foreign_client_headers_and_timeout() -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         assert request.headers["X-Custom"] == "custom"
         assert request.headers["X-API-Key"] == "key"
         assert request.extensions["timeout"]["read"] == 7

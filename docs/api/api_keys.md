@@ -85,4 +85,3 @@ List credentials in the platform administration screen.
 **Method:** GET. **Access:** Platform administration browser UI.
 
 **Response:** Schema unknown.
-

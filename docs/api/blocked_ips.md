@@ -78,4 +78,3 @@ Remove an IP block in the CSRF blocking system.
 | `ip` | JSON | string | IP address to unblock. |
 
 **Response:** Known JSON fields: `success`. Schema incomplete.
-

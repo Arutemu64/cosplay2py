@@ -35,7 +35,7 @@ curl "$COSPLAY2_BASE_URL/api/requests/upload_image" \
 The image response contains `id` and `value`; replace the empty value id with the
 returned id. The image value includes `filename`, `original` dimensions and resized
 variants such as `large` and `medium`. In subsequent request reads, this object has
-been stored as JSON inside a string. 
+been stored as JSON inside a string.
 
 Deletion uses JSON with the same four ids, not multipart. Observed image deletion
 stringifies `request_section_id` and `value_id`. For ordinary form fields, send a

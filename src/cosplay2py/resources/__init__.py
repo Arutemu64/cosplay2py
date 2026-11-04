@@ -1,5 +1,4 @@
 from cosplay2py.resources.events import AsyncEvents, Events
-from cosplay2py.resources.geo import AsyncGeo, Geo
 from cosplay2py.resources.misc import (
     AsyncCards,
     AsyncDesign,
@@ -23,7 +22,6 @@ __all__ = [
     "AsyncDesign",
     "AsyncETickets",
     "AsyncEvents",
-    "AsyncGeo",
     "AsyncMedia",
     "AsyncPages",
     "AsyncRequests",
@@ -34,7 +32,6 @@ __all__ = [
     "Design",
     "ETickets",
     "Events",
-    "Geo",
     "Media",
     "Pages",
     "Requests",

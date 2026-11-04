@@ -24,4 +24,3 @@ Poll subscribed UI change channels with the last server microtime.
 **Response:** Object with `microtime` (next polling cursor) and `m` (array). Each message is a channel string or an object with `key` and `data`.
 
 **Notes:** The browser polls every 10 seconds. This is a UI change-notification protocol, not a general event-data API.
-

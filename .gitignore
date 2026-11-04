@@ -30,4 +30,3 @@ CLAUDE.local.md
 
 # HTTP archives contain session cookies and personal data
 *.har
-.package-venv/

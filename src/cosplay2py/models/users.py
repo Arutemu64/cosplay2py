@@ -121,16 +121,3 @@ class CityRatings(Cosplay2Model):
     geo: RatingGeo | None = None
     region: RatingRegion | None = None
     userlist: list[RatingUser] | None = None
-
-
-class CityGeodata(Cosplay2Model):
-    """City location data returned by ``geo.code_city``."""
-
-    country_code: str | None = None
-    country: str | None = None
-    region: str | None = None
-    city: str | None = None
-    bounds: str | None = None
-    viewport: str | None = None
-    location_lng: str | None = None
-    location_lat: str | None = None

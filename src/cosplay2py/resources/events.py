@@ -304,50 +304,6 @@ class Events(SyncResource):
         """
         self._request(_set_deadline(topic_id, deadline, time))
 
-    def filter_list(self, active_year: str) -> Any:
-        """Portal events for the selected year."""
-        return self._request(
-            Endpoint(
-                "POST",
-                "/api/events/filter_list",
-                Any,
-                json={"active_year": active_year},
-                idempotent=True,
-            )
-        )
-
-    def get_types(self) -> Any:
-        """Portal event types."""
-        return self._request(
-            Endpoint("GET", "/api/events/get_types", Any, idempotent=True)
-        )
-
-    def create_festival(self, form: dict[str, Any]) -> int:
-        """Create a festival from the portal's creation form."""
-        return self._request(
-            Endpoint(
-                "POST",
-                "/api/events/create_festival",
-                int,
-                key="new_event_id",
-                json=dict(form),
-                idempotent=False,
-            )
-        )
-
-    def create_festival_logo(self, filename: str, content: bytes) -> str:
-        """Upload a creation-form logo and return its temporary filename."""
-        return self._request(
-            Endpoint(
-                "POST",
-                "/api/events/create_festival_logo",
-                str,
-                key="logofilename",
-                files={"mainlogo": (filename, content)},
-                idempotent=False,
-            )
-        )
-
 
 class AsyncEvents(AsyncResource):
     """The event the client is bound to."""
@@ -507,47 +463,3 @@ class AsyncEvents(AsyncResource):
             as shown by :meth:`get_topics_state`; seconds are dropped.
         """
         await self._request(_set_deadline(topic_id, deadline, time))
-
-    async def filter_list(self, active_year: str) -> Any:
-        """Portal events for the selected year."""
-        return await self._request(
-            Endpoint(
-                "POST",
-                "/api/events/filter_list",
-                Any,
-                json={"active_year": active_year},
-                idempotent=True,
-            )
-        )
-
-    async def get_types(self) -> Any:
-        """Portal event types."""
-        return await self._request(
-            Endpoint("GET", "/api/events/get_types", Any, idempotent=True)
-        )
-
-    async def create_festival(self, form: dict[str, Any]) -> int:
-        """Create a festival from the portal's creation form."""
-        return await self._request(
-            Endpoint(
-                "POST",
-                "/api/events/create_festival",
-                int,
-                key="new_event_id",
-                json=dict(form),
-                idempotent=False,
-            )
-        )
-
-    async def create_festival_logo(self, filename: str, content: bytes) -> str:
-        """Upload a creation-form logo and return its temporary filename."""
-        return await self._request(
-            Endpoint(
-                "POST",
-                "/api/events/create_festival_logo",
-                str,
-                key="logofilename",
-                files={"mainlogo": (filename, content)},
-                idempotent=False,
-            )
-        )

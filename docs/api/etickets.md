@@ -294,4 +294,3 @@ YooKassa callback displayed in payment setup instructions.
 **Response:** Schema unknown.
 
 **Notes:** Provider callback URL displayed in setup instructions. Method, payload, signature verification and response contract were not established.
-

@@ -17,16 +17,17 @@ from cosplay2py.models import (
     TopicGroupLink,
     TopicTemplate,
 )
-from unit.conftest import TOPIC, ApiCall, json_response, make_client
+from unit.conftest import TOPIC, ApiCall, json_response
+
+pytestmark = pytest.mark.anyio
 
 
-def test_get_list_unwraps_and_parses() -> None:
+async def test_get_list_unwraps_and_parses(api: ApiCall) -> None:
     def handler(request: httpx2.Request) -> httpx2.Response:
         assert request.method == "GET"
         return json_response([TOPIC])
 
-    with make_client(handler) as client:
-        (topic,) = client.topics.get_list()
+    (topic,) = await api(handler, lambda c: c.topics.get_list())
 
     assert topic.url_code == "solo"
     assert topic.category is TopicCategory.DEFILE
@@ -47,8 +48,8 @@ def test_get_list_unwraps_and_parses() -> None:
         ),
     ],
 )
-def test_get_list_posts_filters(
-    kwargs: dict[str, Any], body: dict[str, object]
+async def test_get_list_posts_filters(
+    api: ApiCall, kwargs: dict[str, Any], body: dict[str, object]
 ) -> None:
     seen: list[httpx2.Request] = []
 
@@ -56,8 +57,7 @@ def test_get_list_posts_filters(
         seen.append(request)
         return json_response([TOPIC])
 
-    with make_client(handler) as client:
-        (topic,) = client.topics.get_list(**kwargs)
+    (topic,) = await api(handler, lambda c: c.topics.get_list(**kwargs))
 
     assert topic.id == TOPIC["id"]
     (request,) = seen
@@ -69,8 +69,8 @@ def test_get_list_posts_filters(
     ("topic", "body"),
     [(7, {"topic_id": 7}), ("solo", {"topic_url_code": "solo"})],
 )
-def test_get_requests_by_id_or_url_code(
-    topic: int | str, body: dict[str, object]
+async def test_get_requests_by_id_or_url_code(
+    api: ApiCall, topic: int | str, body: dict[str, object]
 ) -> None:
     seen: list[httpx2.Request] = []
 
@@ -78,8 +78,7 @@ def test_get_requests_by_id_or_url_code(
         seen.append(request)
         return json_response({"message": "ok", "topic": TOPIC, "requests": []})
 
-    with make_client(handler) as client:
-        listing = client.topics.get_requests(topic)
+    listing = await api(handler, lambda c: c.topics.get_requests(topic))
 
     assert listing.topic.id == TOPIC["id"]
     (request,) = seen
@@ -87,7 +86,7 @@ def test_get_requests_by_id_or_url_code(
     assert json.loads(request.content) == body
 
 
-def test_get_all_requests() -> None:
+async def test_get_all_requests(api: ApiCall) -> None:
     item = {
         "id": 1,
         "topic_id": 7,
@@ -109,8 +108,7 @@ def test_get_all_requests() -> None:
         assert request.url.path == "/api/topics/get_all_requests"
         return json_response([item])
 
-    with make_client(handler) as client:
-        (parsed,) = client.topics.get_all_requests()
+    (parsed,) = await api(handler, lambda c: c.topics.get_all_requests())
 
     assert parsed.status is RequestStatus.APPROVED
     assert parsed.update_time == datetime(2025, 5, 28, 16, 38)  # noqa: DTZ001
@@ -119,7 +117,32 @@ def test_get_all_requests() -> None:
     assert parsed.model_extra == {}
 
 
-def test_get_form() -> None:
+async def test_get_requests_for_planner(api: ApiCall) -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        assert request.method == "GET"
+        assert request.url.path == "/api/topics/get_req_for_planner"
+        return json_response(
+            {
+                "requests": [
+                    {
+                        "id": 1,
+                        "topic_id": 7,
+                        "number": 2,
+                        "status": "approved",
+                        "user_id": 3,
+                        "duration": 2.5,
+                    }
+                ],
+                "members": [{"request_id": 1, "user_id": 3, "title": "Someone"}],
+            }
+        )
+
+    planner = await api(handler, lambda c: c.topics.get_requests_for_planner())
+    assert planner.requests[0].duration == 2.5
+    assert planner.members[0].request_id == 1
+
+
+async def test_get_form(api: ApiCall) -> None:
     seen: list[httpx2.Request] = []
     section = {
         "id": 3,
@@ -157,8 +180,7 @@ def test_get_form() -> None:
             }
         )
 
-    with make_client(handler) as client:
-        form = client.topics.get_form("solo")
+    form = await api(handler, lambda c: c.topics.get_form("solo"))
 
     assert form.topic.id == TOPIC["id"]
     assert [s.internal_name for s in form.sections] == [SectionTemplate.COMMON, None]
@@ -318,14 +340,14 @@ async def test_generate_card_titles(api: ApiCall) -> None:
 @pytest.mark.parametrize(
     ("bad_field", "exc"), [(True, TypeError), (0, ValueError), (4, ValueError)]
 )
-def test_generate_card_titles_rejects_invalid_field(
-    bad_field: Any, exc: type[Exception]
+async def test_generate_card_titles_rejects_invalid_field(
+    api: ApiCall, bad_field: Any, exc: type[Exception]
 ) -> None:
     def handler(request: httpx2.Request) -> httpx2.Response:
         raise AssertionError("no request expected")
 
-    with make_client(handler) as client, pytest.raises(exc):
-        client.topics.generate_card_titles(7, bad_field)
+    with pytest.raises(exc):
+        await api(handler, lambda c: c.topics.generate_card_titles(7, bad_field))
 
 
 @pytest.mark.anyio
