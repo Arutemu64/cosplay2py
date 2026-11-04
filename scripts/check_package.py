@@ -1,8 +1,3 @@
-#!/usr/bin/env -S uv run --script
-# /// script
-# requires-python = ">=3.12"
-# dependencies = []
-# ///
 """Run with a clean interpreter after installing a built wheel or sdist."""
 
 import importlib.metadata
